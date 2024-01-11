@@ -1,5 +1,7 @@
-import pandas as pd
 from datetime import datetime
+
+import pandas as pd
+
 
 def saveSpending(text):
     # Split the text into amount and description
@@ -34,6 +36,3 @@ def saveSpending(text):
         df.to_excel(writer, sheet_name='Sheet1', index=False)
 
     return "Saved"
-
-# Example usage
-print(saveSpending("10 coffee"))
