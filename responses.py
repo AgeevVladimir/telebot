@@ -1,15 +1,15 @@
-import random
 from datetime import datetime
-
-from requests import *
 
 import openAI
 import spendings
 
+categories = ['🛒 Продукты', '👶 Дети', '🚇 Транспорт',
+              '💊 Здоровье', '🍔 Еда вне дома', '🏠 Аренда жилья', '🎢 Развлечения',
+              '🎁 Подарки', '👕 Шоппинг', '🐈‍⬛ Котики', '🏡 Дом, ремонт',
+              '🌐 Сервисы', '📚 Образование', '✈️ Путешествия', '🌎 Прочее']
 
-def sample_responses(input_text):
-    user_message = str(input_text).lower()
 
+def sample_responses(user_message):
     if user_message in ("hi", "hello"):
         return "Hey! How is it going?"
 
@@ -21,16 +21,19 @@ def sample_responses(input_text):
         date_time = now.strftime("%d/%m/%y, %H:%M:%S")
         return str(date_time)
 
-    if user_message in "number":
-        num = random.randint(0, 100)
-        adress = 'http://numbersapi.com/' + str(num)
-        response = get(adress).text
-        return response
-
     # Handle sum and category
 
     if user_message[0].isdigit():
         return spendings.saveSpending(user_message)
+
+    if user_message in "❌ Отмена":
+        return spendings.deleteLastSpending()
+
+    if user_message in categories:
+        return spendings.updateLastSpendingCategory(user_message)
+
+    if user_message.startswith('📊'):
+        return spendings.getReport(user_message)
 
     # Подключение к ChatGPT
 
