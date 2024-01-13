@@ -1,5 +1,3 @@
-from datetime import datetime
-
 import openAI
 import spendings
 
@@ -10,19 +8,6 @@ categories = ['🛒 Продукты', '👶 Дети', '🚇 Транспорт
 
 
 def sample_responses(user_message):
-    if user_message in ("hi", "hello"):
-        return "Hey! How is it going?"
-
-    if user_message in "who are you":
-        return "I'm MyFinance1514_bot"
-
-    if user_message in "time":
-        now = datetime.now()
-        date_time = now.strftime("%d/%m/%y, %H:%M:%S")
-        return str(date_time)
-
-    # Handle sum and category
-
     if user_message[0].isdigit():
         return spendings.saveSpending(user_message)
 

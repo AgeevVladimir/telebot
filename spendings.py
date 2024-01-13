@@ -49,7 +49,7 @@ def saveSpending(text):
     with pd.ExcelWriter('spendings.xlsx', engine='openpyxl') as writer:
         df.to_excel(writer, sheet_name='Sheet1', index=False)
 
-    return "Spending saved"
+    return "Don't forget to chose Category"
 
 
 def deleteLastSpending():
@@ -122,7 +122,7 @@ def getReport(text, currency='€'):
 
             return formatReport(week_report, currency)
 
-        elif text == '📊 Категории за месяц':
+        elif text == '📊 Месяц':
             # Report for the current month aggregated by categories
             category_month_report = df[(df['month'].str.contains(datetime.now().strftime("%m"))) &
                                        (df['year'] == int(datetime.now().strftime("%Y")))]
@@ -130,7 +130,7 @@ def getReport(text, currency='€'):
                 'category').sum().reset_index()
             return formatMonthReport(df_excluded_sum, currency)
 
-        elif text == '📊 Категории за год':
+        elif text == '📊 Год':
             # Report for the current month aggregated by categories
             category_year_report = df[df['year'] == int(datetime.now().strftime("%Y"))]
             df_excluded_sum = category_year_report.drop(columns=['date']).groupby(
