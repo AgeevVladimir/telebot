@@ -9,16 +9,16 @@ categories = ['🛒 Продукты', '👶 Дети', '🚇 Транспорт
 
 def sample_responses(user_message):
     if user_message[0].isdigit():
-        return spendings.saveSpending(user_message)
+        return spendings.save_spending(user_message)
 
     if user_message in "❌ Отмена":
-        return spendings.deleteLastSpending()
+        return spendings.delete_last_spending()
 
     if user_message in categories:
-        return spendings.updateLastSpendingCategory(user_message)
+        return spendings.update_last_spending_category(user_message)
 
     if user_message.startswith('📊'):
-        return spendings.getReport(user_message)
+        return spendings.get_report(user_message)
 
     # Подключение к ChatGPT
 
