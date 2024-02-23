@@ -29,7 +29,7 @@ def get_current_date():
     }
 
 
-def load_spending_data():
+def receive_data_from_excel():
     try:
         df = pd.read_excel(FILE_NAME, sheet_name='Sheet1')
         # Ensure the 'date' column is in the correct format if it exists
@@ -40,11 +40,16 @@ def load_spending_data():
     return df
 
 
+def load_data_to_excel(df):
+    with pd.ExcelWriter(FILE_NAME, engine='openpyxl', datetime_format='YYYY-MM-DD HH:MM:SS') as writer:
+        df.to_excel(writer, sheet_name='Sheet1', index=False)
+
+
 def save_spending(text):
     amount, description = text.split(maxsplit=1)
     current_date = get_current_date()
 
-    df = load_spending_data()
+    df = receive_data_from_excel()
     new_data = pd.DataFrame({
         'year': [current_date['year']],
         'month': [current_date['month']],
@@ -55,36 +60,33 @@ def save_spending(text):
     })
 
     df = pd.concat([df, new_data], ignore_index=True)
-    with pd.ExcelWriter(FILE_NAME, engine='openpyxl', datetime_format='YYYY-MM-DD HH:MM:SS') as writer:
-        df.to_excel(writer, sheet_name='Sheet1', index=False)
+    load_data_to_excel(df)
 
     return "Don't forget to choose Category"
 
 
 def delete_last_spending():
-    df = load_spending_data()
+    df = receive_data_from_excel()
     if not df.empty:
         df = df.drop(df.index[-1])
-        with pd.ExcelWriter(FILE_NAME, engine='openpyxl', datetime_format='YYYY-MM-DD HH:MM:SS') as writer:
-            df.to_excel(writer, sheet_name='Sheet1', index=False)
+        load_data_to_excel(df)
         return "Last spending deleted"
     else:
         return "No spending to delete"
 
 
 def update_last_spending_category(text):
-    df = load_spending_data()
+    df = receive_data_from_excel()
     if not df.empty:
         df.at[df.index[-1], 'category'] = text
-        with pd.ExcelWriter(FILE_NAME, engine='openpyxl', datetime_format='YYYY-MM-DD HH:MM:SS') as writer:
-            df.to_excel(writer, sheet_name='Sheet1', index=False)
+        load_data_to_excel(df)
         return "Category updated for the last spending"
     else:
         return "No spending to update"
 
 
 def get_report(text):
-    df = load_spending_data()
+    df = receive_data_from_excel()
     current_date = get_current_date()
 
     if text == '📊 День':
