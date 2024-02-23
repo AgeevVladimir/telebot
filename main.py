@@ -1,5 +1,3 @@
-import datetime
-
 from telegram import Update, ReplyKeyboardMarkup
 from telegram.ext import Updater, MessageHandler, Filters, CallbackContext, CommandHandler
 
@@ -14,13 +12,6 @@ keyboard = [['📊 День', '📊 Неделя', '📊 Месяц', '📊 Го
             ['🌐 Сервисы', '📚 Образование', '✈️ Путешествия', '🌎 Прочее']]
 
 reply_markup = ReplyKeyboardMarkup(keyboard, one_time_keyboard=True, resize_keyboard=True)
-
-
-def send_daily_notification(context: CallbackContext):
-    # Get the chat ID (replace CHAT_ID with the actual chat ID)
-    chat_id = -4148217207
-    # Send the notification
-    context.bot.send_message(chat_id=chat_id, text="🕗 День подходит к концу, не забудьте внести расходы")
 
 
 def start(update, context):
@@ -48,10 +39,6 @@ def main():
     dp.add_error_handler(error)
 
     updater.start_polling()
-
-    # Schedule the daily notification job at 8 PM
-    job_queue = updater.job_queue
-    job_queue.run_daily(send_daily_notification, time=datetime.time(20, 00), days=(0, 1, 2, 3, 4, 5, 6))
 
     updater.idle()
 

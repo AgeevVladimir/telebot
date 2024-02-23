@@ -1,15 +1,20 @@
-FROM python:3.10
+# Use the official Python image as a base image
+FROM python:3.8
 
-ENV PYTHON_VERSION=3.10 \
-    PYTHONUNBUFFERED=1 \
-    WORKDIR=/app/
-WORKDIR $WORKDIR
+# Set the working directory in the container
+WORKDIR /app
 
+# Copy the requirements file into the container
+COPY requirements.txt .
+
+# Install any dependencies
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Copy the rest of the application code into the container
 COPY . .
 
-RUN pip install --upgrade pip \
-    && pip install -r requirements.txt
+# Expose the port the app runs on
+EXPOSE 5000
 
+# Command to run your application
 CMD ["python", "main.py"]
-
-EXPOSE 8080:8080

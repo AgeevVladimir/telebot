@@ -119,7 +119,7 @@ def format_report(report_df, currency):
     total_sum = 0
 
     for _, row in report_df.iterrows():
-        day_abbreviation = get_day_abbreviation(pd.to_datetime(row['date']).strftime('%A'))
+        day_abbreviation = get_day_abbreviation(pd.to_datetime(row['date'], dayfirst=True).strftime('%A'))
         formatted_report += f"{day_abbreviation}. {row['category']:<10} {currency}{row['sum']:<4} {row['comment']}\n"
         total_sum += row['sum']
 
