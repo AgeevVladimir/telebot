@@ -1,4 +1,5 @@
 from datetime import datetime, timedelta
+
 import pandas as pd
 
 FILE_NAME = 'spendings.xlsx'
@@ -22,7 +23,7 @@ def get_day_abbreviation(day):
 def get_current_date():
     current_date = datetime.now()
     return {
-        'day': current_date.strftime('%d.%m.%Y'),
+        'day': current_date.strftime('%Y-%m-%d %H:%M:%S'),  # Modified to desired format
         'year': current_date.strftime('%Y'),
         'month': current_date.strftime('%m %B').lower()
     }
@@ -31,6 +32,9 @@ def get_current_date():
 def load_spending_data():
     try:
         df = pd.read_excel(FILE_NAME, sheet_name='Sheet1')
+        # Ensure the 'date' column is in the correct format if it exists
+        if 'date' in df.columns:
+            df['date'] = pd.to_datetime(df['date']).dt.strftime('%Y-%m-%d %H:%M:%S')
     except FileNotFoundError:
         df = pd.DataFrame(columns=['year', 'month', 'date', 'sum', 'comment', 'category'])
     return df
@@ -51,7 +55,7 @@ def save_spending(text):
     })
 
     df = pd.concat([df, new_data], ignore_index=True)
-    with pd.ExcelWriter(FILE_NAME, engine='openpyxl') as writer:
+    with pd.ExcelWriter(FILE_NAME, engine='openpyxl', datetime_format='YYYY-MM-DD HH:MM:SS') as writer:
         df.to_excel(writer, sheet_name='Sheet1', index=False)
 
     return "Don't forget to choose Category"
@@ -61,7 +65,7 @@ def delete_last_spending():
     df = load_spending_data()
     if not df.empty:
         df = df.drop(df.index[-1])
-        with pd.ExcelWriter(FILE_NAME, engine='openpyxl') as writer:
+        with pd.ExcelWriter(FILE_NAME, engine='openpyxl', datetime_format='YYYY-MM-DD HH:MM:SS') as writer:
             df.to_excel(writer, sheet_name='Sheet1', index=False)
         return "Last spending deleted"
     else:
@@ -72,7 +76,7 @@ def update_last_spending_category(text):
     df = load_spending_data()
     if not df.empty:
         df.at[df.index[-1], 'category'] = text
-        with pd.ExcelWriter(FILE_NAME, engine='openpyxl') as writer:
+        with pd.ExcelWriter(FILE_NAME, engine='openpyxl', datetime_format='YYYY-MM-DD HH:MM:SS') as writer:
             df.to_excel(writer, sheet_name='Sheet1', index=False)
         return "Category updated for the last spending"
     else:
@@ -84,17 +88,15 @@ def get_report(text):
     current_date = get_current_date()
 
     if text == '📊 День':
-        today_report = df[(df['date'] == current_date['day']) &
-                          (df['month'].str.contains(current_date['month'])) &
-                          (df['year'] == int(current_date['year']))]
+        # Assuming the 'day' in current_date already includes time, comparisons should be date-only
+        today_report = df[(pd.to_datetime(df['date']).dt.date == pd.to_datetime(current_date['day']).date())]
         return format_report(today_report, CURRENCY)
 
     elif text == '📊 Неделя':
-        df['date'] = pd.to_datetime(df['date'], format="%d.%m.%Y", dayfirst=True)
+        df['date'] = pd.to_datetime(df['date'])  # Adjust to new format without specifying dayfirst
         start_of_week = datetime.now() - timedelta(days=datetime.now().weekday())
         end_of_week = start_of_week + timedelta(days=6)
-        week_report = df[(df['date'] >= start_of_week.strftime("%Y.%m.%d")) &
-                         (df['date'] <= end_of_week.strftime("%Y.%m.%d"))]
+        week_report = df[(df['date'] >= start_of_week) & (df['date'] <= end_of_week)]
         return format_report(week_report, CURRENCY)
 
     elif text == '📊 Месяц':
@@ -119,7 +121,7 @@ def format_report(report_df, currency):
     total_sum = 0
 
     for _, row in report_df.iterrows():
-        day_abbreviation = get_day_abbreviation(pd.to_datetime(row['date'], dayfirst=True).strftime('%A'))
+        day_abbreviation = get_day_abbreviation(pd.to_datetime(row['date']).strftime('%A'))
         formatted_report += f"{day_abbreviation}. {row['category']:<10} {currency}{row['sum']:<4} {row['comment']}\n"
         total_sum += row['sum']
 
