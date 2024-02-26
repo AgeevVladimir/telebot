@@ -1,6 +1,22 @@
 from datetime import datetime, timedelta
 
 import pandas as pd
+from google.oauth2.service_account import Credentials
+from googleapiclient.discovery import build
+
+from Utils import constants
+
+# Constants
+SPREADSHEET_ID = constants.GOOGLE_SHEET_ID
+SHEET_NAME = 'Spendings'
+RANGE_NAME = f'{SHEET_NAME}!A1'  # Adjust based on where you want to start reading/writing
+SCOPES = ['https://www.googleapis.com/auth/spreadsheets']
+CREDENTIALS_FILE = 'Utils/google_Api.json'
+
+# Authenticate and create the service
+credentials = Credentials.from_service_account_file(CREDENTIALS_FILE, scopes=SCOPES)
+service = build('sheets', 'v4', credentials=credentials)
+sheet = service.spreadsheets()
 
 FILE_NAME = 'spendings.xlsx'
 CURRENCY = '€'
@@ -29,7 +45,7 @@ def get_current_date():
     }
 
 
-def receive_data_from_excel():
+def load_data_from_excel():
     try:
         df = pd.read_excel(FILE_NAME, sheet_name='Sheet1')
         # Ensure the 'date' column is in the correct format if it exists
@@ -38,6 +54,20 @@ def receive_data_from_excel():
     except FileNotFoundError:
         df = pd.DataFrame(columns=['year', 'month', 'date', 'sum', 'comment', 'category'])
     return df
+
+
+def load_data_from_google_sheets():
+    result = sheet.values().get(spreadsheetId=SPREADSHEET_ID, range=RANGE_NAME).execute()
+    values = result.get('values', [])
+
+    if not values:
+        print('No data found.')
+    else:
+        # Assuming the first row is the header
+        df = pd.DataFrame(values[1:], columns=values[0])
+        # Convert the 'date' column to datetime
+        df['date'] = pd.to_datetime(df['date']).dt.strftime('%Y-%m-%d %H:%M:%S')
+        return df
 
 
 def load_data_to_excel(df):
@@ -49,7 +79,7 @@ def save_spending(text):
     amount, description = text.split(maxsplit=1)
     current_date = get_current_date()
 
-    df = receive_data_from_excel()
+    df = load_data_from_excel()
     new_data = pd.DataFrame({
         'year': [current_date['year']],
         'month': [current_date['month']],
@@ -66,7 +96,7 @@ def save_spending(text):
 
 
 def delete_last_spending():
-    df = receive_data_from_excel()
+    df = load_data_from_excel()
     if not df.empty:
         df = df.drop(df.index[-1])
         load_data_to_excel(df)
@@ -76,7 +106,7 @@ def delete_last_spending():
 
 
 def update_last_spending_category(text):
-    df = receive_data_from_excel()
+    df = load_data_from_excel()
     if not df.empty:
         df.at[df.index[-1], 'category'] = text
         load_data_to_excel(df)
@@ -86,7 +116,7 @@ def update_last_spending_category(text):
 
 
 def get_report(text):
-    df = receive_data_from_excel()
+    df = load_data_from_google_sheets()
     current_date = get_current_date()
 
     if text == '📊 День':
@@ -94,12 +124,15 @@ def get_report(text):
         today_report = df[(pd.to_datetime(df['date']).dt.date == pd.to_datetime(current_date['day']).date())]
         return format_report(today_report, CURRENCY)
 
+
+
     elif text == '📊 Неделя':
-        df['date'] = pd.to_datetime(df['date'])  # Adjust to new format without specifying dayfirst
-        start_of_week = datetime.now() - timedelta(days=datetime.now().weekday())
-        end_of_week = start_of_week + timedelta(days=6)
+        df['date'] = pd.to_datetime(df['date']).dt.date
+        start_of_week = datetime.now().date() - timedelta(days=6)
+        end_of_week = datetime.now().date()
         week_report = df[(df['date'] >= start_of_week) & (df['date'] <= end_of_week)]
         return format_report(week_report, CURRENCY)
+
 
     elif text == '📊 Месяц':
         category_month_report = df[(df['month'].str.contains(current_date['month'])) &
