@@ -9,7 +9,7 @@ from Utils import constants
 # Constants
 SPREADSHEET_ID = constants.GOOGLE_SHEET_ID
 SHEET_NAME = 'Spendings'
-RANGE_NAME = f'{SHEET_NAME}!A1'  # Adjust based on where you want to start reading/writing
+RANGE_NAME = f'{SHEET_NAME}!A1:Z'  # Adjust based on where you want to start reading/writing
 SCOPES = ['https://www.googleapis.com/auth/spreadsheets']
 CREDENTIALS_FILE = 'Utils/google_Api.json'
 
@@ -59,14 +59,11 @@ def load_data_from_excel():
 def load_data_from_google_sheets():
     result = sheet.values().get(spreadsheetId=SPREADSHEET_ID, range=RANGE_NAME).execute()
     values = result.get('values', [])
-
     if not values:
         print('No data found.')
     else:
-        # Assuming the first row is the header
         df = pd.DataFrame(values[1:], columns=values[0])
-        # Convert the 'date' column to datetime
-        df['date'] = pd.to_datetime(df['date']).dt.strftime('%Y-%m-%d %H:%M:%S')
+        df['date'] = pd.to_datetime(df['date'], format='%Y-%m-%d %H:%M:%S', errors='coerce')
         return df
 
 
@@ -120,7 +117,6 @@ def get_report(text):
     current_date = get_current_date()
 
     if text == '📊 День':
-        # Assuming the 'day' in current_date already includes time, comparisons should be date-only
         today_report = df[(pd.to_datetime(df['date']).dt.date == pd.to_datetime(current_date['day']).date())]
         return format_report(today_report, CURRENCY)
 
