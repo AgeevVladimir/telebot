@@ -45,17 +45,6 @@ def get_current_date():
     }
 
 
-def load_data_from_excel():
-    try:
-        df = pd.read_excel(FILE_NAME, sheet_name='Sheet1')
-        # Ensure the 'date' column is in the correct format if it exists
-        if 'date' in df.columns:
-            df['date'] = pd.to_datetime(df['date']).dt.strftime('%Y-%m-%d %H:%M:%S')
-    except FileNotFoundError:
-        df = pd.DataFrame(columns=['year', 'month', 'date', 'sum', 'comment', 'category'])
-    return df
-
-
 def load_data_from_google_sheets():
     result = sheet.values().get(spreadsheetId=SPREADSHEET_ID, range=RANGE_NAME).execute()
     values = result.get('values', [])
@@ -67,49 +56,67 @@ def load_data_from_google_sheets():
         return df
 
 
-def load_data_to_excel(df):
-    with pd.ExcelWriter(FILE_NAME, engine='openpyxl', datetime_format='YYYY-MM-DD HH:MM:SS') as writer:
-        df.to_excel(writer, sheet_name='Sheet1', index=False)
-
 
 def save_spending(text):
     amount, description = text.split(maxsplit=1)
     current_date = get_current_date()
-
-    df = load_data_from_excel()
-    new_data = pd.DataFrame({
-        'year': [current_date['year']],
-        'month': [current_date['month']],
-        'date': [current_date['day']],
-        'sum': [amount],
-        'comment': [description],
-        'category': ['']
-    })
-
-    df = pd.concat([df, new_data], ignore_index=True)
-    load_data_to_excel(df)
-
-    return "Don't forget to choose Category"
+    values = [[current_date['year'], current_date['month'], current_date['day'], amount, description, '']]
+    body = {'values': values}
+    result = sheet.values().append(
+        spreadsheetId=SPREADSHEET_ID,
+        range=RANGE_NAME,
+        valueInputOption='USER_ENTERED',
+        body=body
+    ).execute()
+    return "Spending saved. Don't forget to choose Category"
 
 
 def delete_last_spending():
-    df = load_data_from_excel()
-    if not df.empty:
-        df = df.drop(df.index[-1])
-        load_data_to_excel(df)
+    # Fetch the last row number with data
+    result = sheet.values().get(spreadsheetId=SPREADSHEET_ID, range=SHEET_NAME).execute()
+    values = result.get('values', [])
+    if values:
+        last_row = len(values)
+        request_body = {
+            'requests': [
+                {
+                    'deleteDimension': {
+                        'range': {
+                            'sheetId': 0,  # Assuming it's the first sheet, adjust if necessary
+                            'dimension': 'ROWS',
+                            'startIndex': last_row - 1,  # Zero-based indexing
+                            'endIndex': last_row
+                        }
+                    }
+                }
+            ]
+        }
+        sheet.batchUpdate(spreadsheetId=SPREADSHEET_ID, body=request_body).execute()
         return "Last spending deleted"
     else:
         return "No spending to delete"
 
 
 def update_last_spending_category(text):
-    df = load_data_from_excel()
-    if not df.empty:
-        df.at[df.index[-1], 'category'] = text
-        load_data_to_excel(df)
+    # Fetch the last row number with data to find where to update the category
+    result = sheet.values().get(spreadsheetId=SPREADSHEET_ID, range=SHEET_NAME).execute()
+    values = result.get('values', [])
+    if values:
+        last_row = len(values)  # This gives us the row index in 1-based indexing
+        # Assuming category is in the 6th column ('F')
+        range_to_update = f'{SHEET_NAME}!F{last_row}'
+        values = [[text]]  # The new category text
+        body = {'values': values}
+        result = sheet.values().update(
+            spreadsheetId=SPREADSHEET_ID,
+            range=range_to_update,
+            valueInputOption='USER_ENTERED',
+            body=body
+        ).execute()
         return "Category updated for the last spending"
     else:
         return "No spending to update"
+
 
 
 def get_report(text):
@@ -131,16 +138,16 @@ def get_report(text):
 
 
     elif text == '📊 Месяц':
+        df['sum'] = df['sum'].astype(float)
         category_month_report = df[(df['month'].str.contains(current_date['month'])) &
-                                   (df['year'] == int(current_date['year']))]
-        df_excluded_sum = category_month_report.drop(columns=['date']).groupby(
-            'category').sum().reset_index()
+                                   (df['year'].astype(int) == int(current_date['year']))]
+        df_excluded_sum = category_month_report.groupby('category')['sum'].sum().reset_index()
         return format_month_report(df_excluded_sum, CURRENCY)
 
     elif text == '📊 Год':
-        category_year_report = df[df['year'] == int(current_date['year'])]
-        df_excluded_sum = category_year_report.drop(columns=['date']).groupby(
-            'category').sum().reset_index()
+        df['sum'] = df['sum'].astype(float)
+        category_year_report = df[df['year'].astype(int) == int(current_date['year'])]
+        df_excluded_sum = category_year_report.groupby('category')['sum'].sum().reset_index()
         return format_year_report(df_excluded_sum, CURRENCY)
 
     else:
@@ -154,7 +161,7 @@ def format_report(report_df, currency):
     for _, row in report_df.iterrows():
         day_abbreviation = get_day_abbreviation(pd.to_datetime(row['date']).strftime('%A'))
         formatted_report += f"{day_abbreviation}. {row['category']:<10} {currency}{row['sum']:<4} {row['comment']}\n"
-        total_sum += row['sum']
+        total_sum += float(row['sum'])
 
     formatted_report += f'Total: {total_sum} {currency}\n'
     return formatted_report.strip()
@@ -166,7 +173,7 @@ def format_month_report(report_df, currency):
 
     for _, row in report_df.iterrows():
         formatted_report += f"{row['category']} {currency}{row['sum']}\n"
-        total_sum += row['sum']
+        total_sum += float(row['sum'])
 
     formatted_report += f'Total: {total_sum} {currency}\n'
     return formatted_report.strip()
@@ -178,7 +185,7 @@ def format_year_report(report_df, currency):
 
     for _, row in report_df.iterrows():
         formatted_report += f"{row['category']} {currency}{row['sum']}\n"
-        total_sum += row['sum']
+        total_sum += float(row['sum'])
 
     formatted_report += f'Total: {total_sum} {currency}\n'
     return formatted_report.strip()
