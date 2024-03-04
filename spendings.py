@@ -56,7 +56,6 @@ def load_data_from_google_sheets():
         return df
 
 
-
 def save_spending(text):
     amount, description = text.split(maxsplit=1)
     current_date = get_current_date()
@@ -117,6 +116,17 @@ def update_last_spending_category(text):
     else:
         return "No spending to update"
 
+
+def get_total_amount():
+    # Retrieve the value from the spreadsheet
+    value_response = sheet.values().get(spreadsheetId=SPREADSHEET_ID, range='Pivot!D2:D2').execute()
+    # Extract the string value
+    value_str = value_response['values'][0][0]
+    # Clean up the string and convert it to a float
+    cleaned_value = float(value_str.replace('\xa0', '').replace(',', '.'))
+    # Print the value with the Euro symbol
+    result = f'{CURRENCY} {cleaned_value}'
+    return result
 
 
 def get_report(text):
