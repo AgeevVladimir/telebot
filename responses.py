@@ -25,7 +25,7 @@ def sample_responses(user_message):
 
     # Подключение к ChatGPT
 
-    if user_message.startswith("chatgpt"):
+    if user_message.lower().startswith("chatgpt"):
         return openAI.getChatGPTanswer(user_message)
 
     return "I don't understand you"

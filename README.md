@@ -7,7 +7,8 @@ A Telegram bot for tracking personal finances, viewing spending statistics, and 
 - **Finance Tracking**: Record and categorize daily expenses
 - **Statistics View**: Check spending by day, week, month, or year
 - **Total Balance Check**: View current total money
-- **AI Integration**: Get smart responses using OpenAI
+<<<<<<< HEAD
+- **AI Integration**: Get smart responses using local Ollama (free and private)
 - **Google Sheets Integration**: Store data in a Google Spreadsheet
 - **Persistent Keyboard**: Easy access to common functions
 
@@ -43,7 +44,8 @@ A Telegram bot for tracking personal finances, viewing spending statistics, and 
 ### Telegram Bot
 1. Create a bot with [@BotFather](https://t.me/botfather) on Telegram
 2. Get your bot token
-3. Set the token in `API_KEY`
+<<<<<<< HEAD
+3. Set the token in `Utils/constants.py` as `API_KEY`
 
 ### Google Sheets
 1. Create a Google Spreadsheet
@@ -51,9 +53,12 @@ A Telegram bot for tracking personal finances, viewing spending statistics, and 
 3. Get the spreadsheet ID from the URL
 4. Place your service account JSON file in `Utils/` (ensure it's ignored in .gitignore)
 
-### OpenAI
-1. Get an API key from [OpenAI](https://platform.openai.com/)
-2. Set it in `OPENAI_API_KEY`
+<<<<<<< HEAD
+### Local AI (Ollama)
+1. Install Ollama: `brew install ollama`
+2. Start Ollama service: `brew services start ollama`
+3. Pull a model: `ollama pull llama2`
+4. The bot will use local AI for responses (no API keys needed!)
 
 ## Usage
 
@@ -101,7 +106,8 @@ docker run -e OPENAI_API_KEY='your-key' -e SPREADSHEET_ID='your-id' -e API_KEY='
 
 - `main.py`: Main bot logic and Telegram handlers
 - `responses.py`: Message processing and responses
-- `openAI.py`: OpenAI integration
+<<<<<<< HEAD
+- `openAI.py`: Local Ollama integration for AI responses
 - `spendings.py`: Spending tracking functionality
 - `Utils/constants.py`: API keys and configuration (ignored)
 - `Utils/myfinance1514-2-53f670e62850.json`: Google service account credentials (ignored)
