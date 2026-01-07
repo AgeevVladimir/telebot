@@ -282,8 +282,39 @@ def get_total_amount():
             return f"{CURRENCY} 0.00"
         
         value_str = value_response['values'][0][0]
-        # Clean up the string and convert it to a float
-        cleaned_value = float(value_str.replace('\xa0', '').replace(',', '.'))
+        text = str(value_str).strip()
+
+        # If the cell contains combined cash/invest info, format nicely
+        lower_text = text.lower()
+        if ('cash' in lower_text) and ('invest' in lower_text):
+            import re
+            # Extract optional currency and number parts for both cash and invest
+            cash_match = re.search(r"cash\s*:\s*(€)?\s*([\d\s.,]+)", text, re.IGNORECASE)
+            invest_match = re.search(r"invest\s*:\s*(€)?\s*([\d\s.,]+)", text, re.IGNORECASE)
+
+            if cash_match and invest_match:
+                cash_currency = cash_match.group(1) or CURRENCY
+                cash_amount = (cash_match.group(2) or '').replace('\xa0', ' ').strip()
+                invest_currency = invest_match.group(1) or CURRENCY
+                invest_amount = (invest_match.group(2) or '').replace('\xa0', ' ').strip()
+
+                # Bold labels and put invest on a new line (Markdown-style)
+                formatted = f"*cash:* {cash_currency}{cash_amount}\n*invest:* {invest_currency}{invest_amount}"
+                logging.info("Retrieved combined cash/invest balance")
+                return formatted
+
+            # Fallback: split on 'invest:' into two lines and bold labels
+            if 'invest:' in lower_text:
+                parts = re.split(r"invest\s*:\s*", text, flags=re.IGNORECASE)
+                left = parts[0].strip().rstrip(',;')
+                right = parts[1].strip()
+                # Try to normalize left to just the cash portion
+                left = re.sub(r"\bcash\s*:\s*", "", left, flags=re.IGNORECASE).strip()
+                formatted = f"*cash:* {left}\n*invest:* {right}"
+                return formatted
+
+        # Otherwise assume it's a single numeric total, try to format as currency
+        cleaned_value = float(text.replace('\xa0', '').replace(',', '.'))
         result = f'{CURRENCY} {cleaned_value:.2f}'
         logging.info(f"Retrieved total amount: {result}")
         return result
@@ -291,8 +322,15 @@ def get_total_amount():
         logging.error(f"Google Sheets API error in get_total_amount: {e}")
         return f"Error retrieving total amount: {e}"
     except ValueError as e:
-        logging.error(f"Value conversion error in get_total_amount: {e}")
-        return f"Error processing total amount: {e}"
+        # If parsing as float failed, just return the raw text as a readable fallback
+        try:
+            raw = value_response['values'][0][0]
+            # Present raw value with a best-effort line break between cash and invest
+            raw = str(raw).replace(' invest:', '\n*invest:* ').replace('cash:', '*cash:*')
+            return raw
+        except Exception:
+            logging.error(f"Value conversion error in get_total_amount: {e}")
+            return f"Error processing total amount: {e}"
     except Exception as e:
         logging.error(f"Unexpected error in get_total_amount: {e}")
         return f"Unexpected error retrieving total amount: {e}"
