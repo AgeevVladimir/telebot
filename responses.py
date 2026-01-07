@@ -28,8 +28,15 @@ def process_multiple_expenses(expense_lines):
             continue
             
         try:
-            result, row_number = spendings.save_spending(line)
-            if "saved" in result.lower() and row_number is not None:
+            result = spendings.save_spending(line)
+            # Handle both tuple and string returns for backward compatibility
+            if isinstance(result, tuple):
+                msg, row_number = result
+            else:
+                msg = result
+                row_number = None
+            
+            if "saved" in msg.lower() and row_number is not None:
                 successful_count += 1
                 # Extract amount from the line for total calculation
                 parts = line.split()
@@ -41,10 +48,11 @@ def process_multiple_expenses(expense_lines):
                         pending_expenses.append((line, row_number))
                     except ValueError:
                         pass
-                results.append(f"✅ {line}: {result}")
+                results.append(f"✅ {line}: {msg}")
             else:
-                results.append(f"❌ {line}: {result}")
+                results.append(f"❌ {line}: {msg}")
         except Exception as e:
+            logger.error(f"Error processing line in process_multiple_expenses: {line} - {e}", exc_info=True)
             results.append(f"❌ {line}: Error - {str(e)}")
     
     summary = f"📊 Processed {successful_count}/{len([l for l in expense_lines if l.strip()])} expenses"
@@ -99,9 +107,13 @@ def sample_responses(user_message):
         # Check for spending input (starts with digit)
         if user_message and user_message[0].isdigit():
             try:
-                return spendings.save_spending(user_message)
+                result = spendings.save_spending(user_message)
+                # Handle both tuple and string returns
+                if isinstance(result, tuple):
+                    return result[0]
+                return result
             except Exception as e:
-                logger.error(f"Error saving spending: {e}")
+                logger.error(f"Error saving spending: {e}", exc_info=True)
                 return "Error saving spending. Please try again."
         
         # Check for cancel command
@@ -145,7 +157,7 @@ def sample_responses(user_message):
                 return "Sorry, AI service is currently unavailable."
         
         logger.info(f"Unrecognized message: {user_message[:50]}...")
-        return "I don't understand you. Try:\n• Record single expense: '25.99 coffee'\n• Record multiple expenses (with category assignment):\n  55 аренда\n  35 перевод папе\n  56 продукты\n• Use keyboard buttons for reports\n• Send 'chatgpt <question>' for AI help\n\n📱 Group chat commands:\n• /add <amount> <description> - Add expense\n• /report <day|week|month|year> - Get reports\n• /balance - Check total balance\n• Mention bot (@yourbot) for direct messages"
+        return "I don't understand you. Try:\n• Record single expense: '25.99 coffee'\n• Record multiple expenses (with category assignment):\n  55 аренда\n  35 перевод папе\n  56 продукты\n• Use keyboard buttons for reports\n• Send 'chatgpt <question>' for AI help."
     
     except Exception as e:
         logger.error(f"Unexpected error in sample_responses: {e}")

@@ -1,5 +1,6 @@
 import logging
 import asyncio
+import time
 from telegram import Update, ReplyKeyboardMarkup
 from telegram.ext import Application, CommandHandler, MessageHandler, filters, ContextTypes
 import pytz
@@ -166,29 +167,50 @@ async def balance(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 def main():
-    try:
-        # Validate API key
-        if not hasattr(keys, 'API_KEY') or not keys.API_KEY:
-            logger.error("API_KEY not found in constants.py")
+    """Main function with restart capability"""
+    import time
+    restart_count = 0
+    max_restarts = 5
+    
+    while restart_count < max_restarts:
+        try:
+            # Validate API key
+            if not hasattr(keys, 'API_KEY') or not keys.API_KEY:
+                logger.error("API_KEY not found in constants.py")
+                return
+            
+            application = Application.builder().token(keys.API_KEY).job_queue(None).build()
+            logger.info('Bot application built successfully')
+
+            # Add handlers
+            application.add_handler(CommandHandler("start", start))
+            application.add_handler(CommandHandler("add", add_expense))
+            application.add_handler(CommandHandler("report", report))
+            application.add_handler(CommandHandler("balance", balance))
+            application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
+            application.add_error_handler(error)
+
+            logger.info('Bot started and polling...')
+            application.run_polling()
+            # If polling stops, increment restart count
+            restart_count += 1
+            logger.warning(f"Bot polling stopped. Restart attempt {restart_count}/{max_restarts}")
+            time.sleep(5)  # Wait 5 seconds before restarting
+            
+        except KeyboardInterrupt:
+            logger.info("Bot stopped by user")
             return
-        
-        application = Application.builder().token(keys.API_KEY).job_queue(None).build()
-        logger.info('Bot application built successfully')
-
-        # Add handlers
-        application.add_handler(CommandHandler("start", start))
-        application.add_handler(CommandHandler("add", add_expense))
-        application.add_handler(CommandHandler("report", report))
-        application.add_handler(CommandHandler("balance", balance))
-        application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
-        application.add_error_handler(error)
-
-        logger.info('Bot started and polling...')
-        application.run_polling()
-        
-    except Exception as e:
-        logger.critical(f"Failed to start bot: {e}")
-        return
+        except Exception as e:
+            restart_count += 1
+            logger.critical(f"Bot crashed with error (attempt {restart_count}/{max_restarts}): {e}", exc_info=True)
+            if restart_count < max_restarts:
+                logger.info(f"Restarting bot in 10 seconds...")
+                time.sleep(10)
+            else:
+                logger.error(f"Bot failed to restart after {max_restarts} attempts")
+                return
+    
+    logger.error(f"Bot reached maximum restart attempts ({max_restarts})")
 
 
 if __name__ == "__main__":
