@@ -138,6 +138,44 @@ docker build -t telebot .
 docker run -e OPENAI_API_KEY='your-key' -e SPREADSHEET_ID='your-id' -e API_KEY='your-token' telebot
 ```
 
+## Render Deployment
+
+Deploy to Render for 24/7 hosting:
+
+1. **Fork and Clone**: Fork this repository to your GitHub account
+
+2. **Create Render Service**:
+   - Go to [Render](https://render.com) and create a new account
+   - Click "New +" and select "Web Service"
+   - Connect your GitHub repository
+   - Configure the service:
+     - **Name**: `telebot` (or your choice)
+     - **Environment**: `Python 3`
+     - **Build Command**: `pip install -r requirements.txt`
+     - **Start Command**: `gunicorn --bind 0.0.0.0:$PORT app:app`
+
+3. **Set Environment Variables**:
+   In Render dashboard, go to your service → Environment → Add Environment Variable:
+   - `TELEGRAM_BOT_TOKEN`: Your bot token from @BotFather
+   - `SPREADSHEET_ID`: Your Google Spreadsheet ID
+   - `OPENAI_API_KEY`: Your OpenAI API key (optional, for AI features)
+   - `GOOGLE_CREDENTIALS_JSON`: The entire JSON content of your Google service account credentials file
+   - `PORT`: Will be set automatically by Render
+
+4. **Google Credentials**:
+   - Get your Google service account JSON file content
+   - Paste the entire JSON as the value for `GOOGLE_CREDENTIALS_JSON` environment variable
+   - **Security**: Never commit credentials to Git
+
+5. **Deploy**:
+   - Click "Create Web Service"
+   - Render will build and deploy your bot
+   - Once deployed, your bot will be running 24/7
+
+6. **Health Check**:
+   - Visit `https://your-service-name.onrender.com/health` to verify the service is running
+   - The bot will start automatically when the web service starts
+
 ## Project Structure
 
 - `main.py`: Main bot logic and Telegram handlers

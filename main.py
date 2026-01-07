@@ -167,7 +167,7 @@ async def balance(update: Update, context: ContextTypes.DEFAULT_TYPE):
             pass
 
 
-def main():
+def run_bot():
     """Main function to run the bot"""
     
     if not hasattr(keys, 'API_KEY') or not keys.API_KEY:
@@ -197,6 +197,11 @@ def main():
         logger.info("Bot stopped by user")
     except Exception as e:
         logger.critical(f"Bot crashed: {e}", exc_info=True)
+
+
+def main():
+    """Entry point for direct execution"""
+    run_bot()
 
 
 if __name__ == "__main__":
