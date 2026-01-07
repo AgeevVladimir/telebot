@@ -20,8 +20,11 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-# Allowed chat ID - bot will only respond in this chat
-ALLOWED_CHAT_ID = -4148217207
+# Allowed chat IDs - bot will respond in these chats only
+ALLOWED_CHAT_IDS = [
+    106709724,      # Your private chat with bot
+    -4148217207     # Group chat with your wife
+]
 
 # Define the keyboard layout
 keyboard = [['💰💰💰  Сколько у нас всего денег 💰💰💰'],
@@ -35,8 +38,8 @@ keyboard = [['💰💰💰  Сколько у нас всего денег 💰�
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     try:
         # Check if message is from allowed chat
-        if update.effective_chat.id != ALLOWED_CHAT_ID:
-            logger.warning(f"Rejected start command from chat {update.effective_chat.id}")
+        if update.effective_chat.id not in ALLOWED_CHAT_IDS:
+            logger.warning(f"Rejected start command from unauthorized chat {update.effective_chat.id}")
             return
         
         if not update.message:
@@ -44,17 +47,18 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
             return
         
         reply_markup = ReplyKeyboardMarkup(keyboard, one_time_keyboard=True, resize_keyboard=True)
-        await update.message.reply_text("Bot started! Daily notifications will be sent at 8 PM.", reply_markup=reply_markup)
-        logger.info(f"Bot started for user {update.effective_user.id}")
+        chat_type = "group" if update.effective_chat.id < 0 else "private chat"
+        await update.message.reply_text(f"Bot started in {chat_type}! Ready to track expenses.", reply_markup=reply_markup)
+        logger.info(f"Bot started for user {update.effective_user.id} in chat {update.effective_chat.id}")
     except Exception as e:
-        logger.error(f"Error in start command: {e}")
+        logger.error(f"Error in start command: {e}", exc_info=True)
 
 
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     try:
         # Check if message is from allowed chat
-        if update.effective_chat.id != ALLOWED_CHAT_ID:
-            logger.warning(f"Rejected message from chat {update.effective_chat.id}")
+        if update.effective_chat.id not in ALLOWED_CHAT_IDS:
+            logger.warning(f"Rejected message from unauthorized chat {update.effective_chat.id}")
             return
         
         if not update.message or not update.message.text:
@@ -66,149 +70,108 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await update.message.reply_text("Please send a valid message.")
             return
         
+        logger.info(f"Processing message from chat {update.effective_chat.id}: {text[:50]}...")
         reply_markup = ReplyKeyboardMarkup(keyboard, one_time_keyboard=True, resize_keyboard=True)
+        
         response = responses.sample_responses(text)
+        
         await update.message.reply_text(response, reply_markup=reply_markup)
-        logger.info(f"Handled message from user {update.effective_user.id}: {text[:50]}...")
+        logger.info(f"Message processed successfully in chat {update.effective_chat.id}")
     except Exception as e:
-        logger.error(f"Error handling message: {e}")
-        try:
-            await update.message.reply_text("Sorry, an error occurred. Please try again.")
-        except:
-            pass
-
-
-async def error(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Handle errors - log them but don't crash the bot"""
-    logger.error(f"Update {update} caused error {context.error}", exc_info=context.error)
-    if update and update.effective_user:
-        logger.error(f"Error for user {update.effective_user.id}")
-    # Try to send error message to user
-    if update and update.message:
+        logger.error(f"Error handling message in chat {update.effective_chat.id}: {e}", exc_info=True)
         try:
             await update.message.reply_text("Sorry, an error occurred. Please try again.")
         except Exception as send_error:
             logger.error(f"Error sending error message: {send_error}")
 
 
+async def error(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Handle errors - log them but don't crash the bot"""
+    logger.error(f"Update {update} caused error {context.error}", exc_info=context.error)
+    if update and update.effective_message:
+        try:
+            await update.effective_message.reply_text("Sorry, an error occurred. Please try again.")
+        except Exception as send_error:
+            logger.error(f"Error sending error message: {send_error}")
+
+
 async def add_expense(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Handle /add command for adding expenses in groups"""
+    """Handle /add command for adding expenses"""
     try:
-        # Check if message is from allowed chat
-        if update.effective_chat.id != ALLOWED_CHAT_ID:
-            logger.warning(f"Rejected add command from chat {update.effective_chat.id}")
+        if update.effective_chat.id not in ALLOWED_CHAT_IDS:
             return
         
         if not update.message or not context.args:
-            try:
-                await update.message.reply_text("Usage: /add <amount> <description>\nExample: /add 25.50 coffee")
-            except Exception as e:
-                logger.error(f"Error sending usage message in add_expense: {e}")
+            await update.message.reply_text("Usage: /add <amount> <description>\nExample: /add 25.50 coffee")
             return
         
         text = ' '.join(context.args)
-        try:
-            response = responses.sample_responses(text)
-            reply_markup = ReplyKeyboardMarkup(keyboard, one_time_keyboard=True, resize_keyboard=True)
-            await update.message.reply_text(response, reply_markup=reply_markup)
-            logger.info(f"Added expense via command from user {update.effective_user.id}: {text}")
-        except Exception as response_error:
-            logger.error(f"Error processing expense in add_expense: {response_error}", exc_info=True)
-            try:
-                await update.message.reply_text(f"Error adding expense: {str(response_error)[:80]}")
-            except Exception as e:
-                logger.error(f"Error sending error message in add_expense: {e}")
+        response = responses.sample_responses(text)
+        reply_markup = ReplyKeyboardMarkup(keyboard, one_time_keyboard=True, resize_keyboard=True)
+        await update.message.reply_text(response, reply_markup=reply_markup)
+        logger.info(f"Expense added via command in chat {update.effective_chat.id}")
     except Exception as e:
-        logger.error(f"Unexpected error in add_expense command: {e}", exc_info=True)
+        logger.error(f"Error in add_expense: {e}", exc_info=True)
         try:
-            await update.message.reply_text("Sorry, an unexpected error occurred. Please try again.")
-        except Exception as send_error:
-            logger.error(f"Error sending error reply in add_expense: {send_error}")
+            await update.message.reply_text("Error adding expense. Please try again.")
+        except:
+            pass
 
 
 async def report(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Handle /report command for getting reports in groups"""
+    """Handle /report command for getting reports"""
     try:
-        # Check if message is from allowed chat
-        if update.effective_chat.id != ALLOWED_CHAT_ID:
-            logger.warning(f"Rejected report command from chat {update.effective_chat.id}")
+        if update.effective_chat.id not in ALLOWED_CHAT_IDS:
             return
         
         if not context.args:
-            try:
-                await update.message.reply_text("Usage: /report <type>\nTypes: day, week, month, year\nExample: /report day")
-            except Exception as e:
-                logger.error(f"Error sending usage message in report: {e}")
+            await update.message.reply_text("Usage: /report <type>\nTypes: day, week, month, year")
             return
         
         report_type = context.args[0].lower()
-        try:
-            if report_type == 'day':
-                text = '📊 День'
-            elif report_type == 'week':
-                text = '📊 Неделя'
-            elif report_type == 'month':
-                text = '📊 Месяц'
-            elif report_type == 'year':
-                text = '📊 Год'
-            else:
-                await update.message.reply_text("Invalid report type. Use: day, week, month, or year")
-                return
-            
-            response = responses.sample_responses(text)
-            await update.message.reply_text(response)
-            logger.info(f"Generated report via command from user {update.effective_user.id}: {report_type}")
-        except Exception as response_error:
-            logger.error(f"Error processing report in report: {response_error}", exc_info=True)
-            try:
-                await update.message.reply_text(f"Error getting report: {str(response_error)[:80]}")
-            except Exception as e:
-                logger.error(f"Error sending error message in report: {e}")
+        report_map = {'day': '📊 День', 'week': '📊 Неделя', 'month': '📊 Месяц', 'year': '📊 Год'}
+        
+        if report_type not in report_map:
+            await update.message.reply_text("Invalid report type. Use: day, week, month, or year")
+            return
+        
+        response = responses.sample_responses(report_map[report_type])
+        await update.message.reply_text(response)
+        logger.info(f"Report generated in chat {update.effective_chat.id}: {report_type}")
     except Exception as e:
-        logger.error(f"Unexpected error in report command: {e}", exc_info=True)
+        logger.error(f"Error in report: {e}", exc_info=True)
         try:
-            await update.message.reply_text("Sorry, an unexpected error occurred. Please try again.")
-        except Exception as send_error:
-            logger.error(f"Error sending error reply in report: {send_error}")
+            await update.message.reply_text("Error generating report. Please try again.")
+        except:
+            pass
 
 
 async def balance(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Handle /balance command for checking total balance in groups"""
+    """Handle /balance command for checking total balance"""
     try:
-        # Check if message is from allowed chat
-        if update.effective_chat.id != ALLOWED_CHAT_ID:
-            logger.warning(f"Rejected balance command from chat {update.effective_chat.id}")
+        if update.effective_chat.id not in ALLOWED_CHAT_IDS:
             return
         
-        text = '💰💰💰  Сколько у нас всего денег 💰💰💰'
-        try:
-            response = responses.sample_responses(text)
-            await update.message.reply_text(response)
-            logger.info(f"Checked balance via command from user {update.effective_user.id}")
-        except Exception as response_error:
-            logger.error(f"Error processing balance in balance: {response_error}", exc_info=True)
-            try:
-                await update.message.reply_text(f"Error getting balance: {str(response_error)[:80]}")
-            except Exception as e:
-                logger.error(f"Error sending error message in balance: {e}")
+        response = responses.sample_responses('💰💰💰  Сколько у нас всего денег 💰💰💰')
+        await update.message.reply_text(response)
+        logger.info(f"Balance checked in chat {update.effective_chat.id}")
     except Exception as e:
-        logger.error(f"Unexpected error in balance command: {e}", exc_info=True)
+        logger.error(f"Error in balance: {e}", exc_info=True)
         try:
-            await update.message.reply_text("Sorry, an unexpected error occurred. Please try again.")
-        except Exception as send_error:
-            logger.error(f"Error sending error reply in balance: {send_error}")
+            await update.message.reply_text("Error getting balance. Please try again.")
+        except:
+            pass
 
 
 def main():
-    """Main function with restart capability"""
+    """Main function to run the bot"""
     
-    # Validate API key
     if not hasattr(keys, 'API_KEY') or not keys.API_KEY:
         logger.error("API_KEY not found in constants.py")
         return
     
     try:
-        logger.info("Bot startup")
+        logger.info("Starting bot...")
         application = Application.builder().token(keys.API_KEY).build()
         logger.info('Bot application built successfully')
 
@@ -220,13 +183,16 @@ def main():
         application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
         application.add_error_handler(error)
 
-        logger.info('Bot started and polling...')
+        logger.info(f'Bot ready for chats: {ALLOWED_CHAT_IDS}')
+        logger.info('Starting polling...')
         
-        # Run polling
-        application.run_polling(allowed_updates=[])
+        # Run polling - this is blocking and manages its own event loop
+        application.run_polling(allowed_updates=Update.ALL_TYPES)
         
+    except KeyboardInterrupt:
+        logger.info("Bot stopped by user")
     except Exception as e:
-        logger.critical(f"Bot crashed with error: {e}", exc_info=True)
+        logger.critical(f"Bot crashed: {e}", exc_info=True)
 
 
 if __name__ == "__main__":

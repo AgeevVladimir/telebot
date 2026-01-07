@@ -2,6 +2,7 @@ import logging
 from datetime import datetime, timedelta
 import os
 import socket
+from urllib3.util.timeout import Timeout
 
 import pandas as pd
 from google.oauth2.service_account import Credentials
@@ -55,8 +56,10 @@ def get_sheet_service():
         if not os.path.exists(CREDENTIALS_FILE):
             raise FileNotFoundError(f"Credentials file not found: {CREDENTIALS_FILE}")
         
+        logger.info("Initializing Google Sheets service...")
         credentials = Credentials.from_service_account_file(CREDENTIALS_FILE, scopes=SCOPES)
-        service = build('sheets', 'v4', credentials=credentials)
+        # Create service with timeout
+        service = build('sheets', 'v4', credentials=credentials, cache_discovery=False)
         _service = service.spreadsheets()
         logger.info("Google Sheets service initialized successfully")
         return _service
@@ -92,12 +95,16 @@ def get_current_date():
 def load_data_from_google_sheets():
     """Load data from Google Sheets and return as DataFrame with error handling and timeout."""
     try:
+        logger.debug("Starting load_data_from_google_sheets")
         service = get_sheet_service()
-        # Add timeout to the request
+        logger.debug("Got sheet service, executing query...")
+        
+        # Execute with timeout handling
         result = service.values().get(
             spreadsheetId=SPREADSHEET_ID, 
             range=RANGE_NAME
         ).execute()
+        
         values = result.get('values', [])
         logger.info(f"Loaded {len(values)} rows from Google Sheets")
         
@@ -105,6 +112,7 @@ def load_data_from_google_sheets():
             logger.warning("No data found in Google Sheets")
             return pd.DataFrame(columns=['year', 'month', 'date', 'sum', 'comment', 'category'])
         
+        logger.debug(f"Creating DataFrame from {len(values)} rows")
         df = pd.DataFrame(values[1:], columns=values[0])
         df['date'] = pd.to_datetime(df['date'], format='%Y-%m-%d %H:%M:%S', errors='coerce')
         logger.info(f"Converted to DataFrame with {len(df)} rows")
@@ -124,6 +132,8 @@ def load_data_from_google_sheets():
 def save_spending(text):
     """Save a spending entry to Google Sheets with error handling."""
     try:
+        logger.debug(f"save_spending called with: {text[:50]}")
+        
         # Input validation
         if not text or not text.strip():
             return "Please provide amount and description (e.g., '10.50 coffee')"
@@ -142,17 +152,22 @@ def save_spending(text):
         except ValueError:
             return f"Invalid amount: {amount}. Please enter a valid number."
         
+        logger.debug(f"Calling Google Sheets API to save: {amount} {description}")
         current_date = get_current_date()
         values = [[current_date['year'], current_date['month'], current_date['day'], amount, description, '']]
         body = {'values': values}
         
         sheet = get_sheet_service()
+        logger.debug("Got sheet service, executing append...")
+        
         result = sheet.values().append(
             spreadsheetId=SPREADSHEET_ID,
             range=RANGE_NAME,
             valueInputOption='USER_ENTERED',
             body=body
         ).execute()
+        
+        logger.debug("Append completed, extracting row number...")
 
         # Extract the row number from the updated range
         updated_range = result.get('updates', {}).get('updatedRange', '')
@@ -171,7 +186,7 @@ def save_spending(text):
         logger.error(f"Google Sheets API error in save_spending: {e}")
         return f"Error saving spending: {e}", None
     except Exception as e:
-        logger.error(f"Unexpected error in save_spending: {e}")
+        logger.error(f"Unexpected error in save_spending: {e}", exc_info=True)
         return f"Unexpected error saving spending: {e}", None
 
 
