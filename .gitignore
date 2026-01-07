@@ -1,2 +1,6 @@
 # Project exclude paths
 /venv/
+.idea/
+.DS_Store
+Utils/constants.py
+Utils/myfinance1514-2-53f670e62850.json
