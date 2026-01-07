@@ -2,6 +2,7 @@ import logging
 import asyncio
 import time
 import signal
+import socket
 from telegram import Update, ReplyKeyboardMarkup
 from telegram.ext import Application, CommandHandler, MessageHandler, filters, ContextTypes
 import pytz
@@ -9,12 +10,18 @@ import pytz
 import responses as responses
 from Utils import constants as keys
 
+# Set socket timeout globally to prevent hanging on API calls
+socket.setdefaulttimeout(30)
+
 # Configure logging
 logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
     level=logging.INFO
 )
 logger = logging.getLogger(__name__)
+
+# Allowed chat ID - bot will only respond in this chat
+ALLOWED_CHAT_ID = 106709724
 
 # Define the keyboard layout
 keyboard = [['💰💰💰  Сколько у нас всего денег 💰💰💰'],
@@ -27,6 +34,11 @@ keyboard = [['💰💰💰  Сколько у нас всего денег 💰�
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     try:
+        # Check if message is from allowed chat
+        if update.effective_chat.id != ALLOWED_CHAT_ID:
+            logger.warning(f"Rejected start command from chat {update.effective_chat.id}")
+            return
+        
         if not update.message:
             logger.warning("Received start command without message")
             return
@@ -40,6 +52,11 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     try:
+        # Check if message is from allowed chat
+        if update.effective_chat.id != ALLOWED_CHAT_ID:
+            logger.warning(f"Rejected message from chat {update.effective_chat.id}")
+            return
+        
         if not update.message or not update.message.text:
             logger.warning("Received message without text")
             return
@@ -77,6 +94,11 @@ async def error(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def add_expense(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handle /add command for adding expenses in groups"""
     try:
+        # Check if message is from allowed chat
+        if update.effective_chat.id != ALLOWED_CHAT_ID:
+            logger.warning(f"Rejected add command from chat {update.effective_chat.id}")
+            return
+        
         if not update.message or not context.args:
             try:
                 await update.message.reply_text("Usage: /add <amount> <description>\nExample: /add 25.50 coffee")
@@ -107,6 +129,11 @@ async def add_expense(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def report(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handle /report command for getting reports in groups"""
     try:
+        # Check if message is from allowed chat
+        if update.effective_chat.id != ALLOWED_CHAT_ID:
+            logger.warning(f"Rejected report command from chat {update.effective_chat.id}")
+            return
+        
         if not context.args:
             try:
                 await update.message.reply_text("Usage: /report <type>\nTypes: day, week, month, year\nExample: /report day")
@@ -148,6 +175,11 @@ async def report(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def balance(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handle /balance command for checking total balance in groups"""
     try:
+        # Check if message is from allowed chat
+        if update.effective_chat.id != ALLOWED_CHAT_ID:
+            logger.warning(f"Rejected balance command from chat {update.effective_chat.id}")
+            return
+        
         text = '💰💰💰  Сколько у нас всего денег 💰💰💰'
         try:
             response = responses.sample_responses(text)
@@ -168,77 +200,33 @@ async def balance(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 def main():
-    """Main function with restart capability and timeout handling"""
-    import time
-    restart_count = 0
-    max_restarts = 5
+    """Main function with restart capability"""
     
-    while restart_count < max_restarts:
-        try:
-            # Validate API key
-            if not hasattr(keys, 'API_KEY') or not keys.API_KEY:
-                logger.error("API_KEY not found in constants.py")
-                return
-            
-            logger.info(f"Bot startup attempt {restart_count + 1}/{max_restarts}")
-            application = Application.builder().token(keys.API_KEY).job_queue(None).build()
-            logger.info('Bot application built successfully')
-
-            # Add handlers
-            application.add_handler(CommandHandler("start", start))
-            application.add_handler(CommandHandler("add", add_expense))
-            application.add_handler(CommandHandler("report", report))
-            application.add_handler(CommandHandler("balance", balance))
-            application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
-            application.add_error_handler(error)
-
-            logger.info('Bot started and polling...')
-            
-            # Set a timeout for polling - restart every hour to prevent hanging
-            try:
-                # Use a simple loop with periodic checks instead of run_polling
-                import threading
-                stop_event = threading.Event()
-                
-                def run_with_timeout():
-                    try:
-                        application.run_polling(allowed_updates=[], timeout=30, read_timeout=60, write_timeout=60, connect_timeout=60, pool_connections=1, pool_maxsize=1)
-                    except Exception as e:
-                        logger.error(f"Error during polling: {e}", exc_info=True)
-                        stop_event.set()
-                
-                # Run polling in a thread with timeout
-                polling_thread = threading.Thread(target=run_with_timeout, daemon=False)
-                polling_thread.start()
-                
-                # Wait with a 1-hour timeout
-                polling_thread.join(timeout=3600)
-                
-                if polling_thread.is_alive():
-                    logger.warning("Polling thread timeout after 1 hour, restarting...")
-                    restart_count += 1
-                    time.sleep(5)
-                else:
-                    # Thread ended naturally (shouldn't happen)
-                    logger.warning("Polling thread ended unexpectedly")
-                    restart_count += 1
-                    time.sleep(5)
-                    
-            except KeyboardInterrupt:
-                logger.info("Bot stopped by user")
-                return
-            
-        except Exception as e:
-            restart_count += 1
-            logger.critical(f"Bot crashed with error (attempt {restart_count}/{max_restarts}): {e}", exc_info=True)
-            if restart_count < max_restarts:
-                logger.info(f"Restarting bot in 5 seconds...")
-                time.sleep(5)
-            else:
-                logger.error(f"Bot failed to restart after {max_restarts} attempts")
-                return
+    # Validate API key
+    if not hasattr(keys, 'API_KEY') or not keys.API_KEY:
+        logger.error("API_KEY not found in constants.py")
+        return
     
-    logger.error(f"Bot reached maximum restart attempts ({max_restarts})")
+    try:
+        logger.info("Bot startup")
+        application = Application.builder().token(keys.API_KEY).build()
+        logger.info('Bot application built successfully')
+
+        # Add handlers
+        application.add_handler(CommandHandler("start", start))
+        application.add_handler(CommandHandler("add", add_expense))
+        application.add_handler(CommandHandler("report", report))
+        application.add_handler(CommandHandler("balance", balance))
+        application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
+        application.add_error_handler(error)
+
+        logger.info('Bot started and polling...')
+        
+        # Run polling
+        application.run_polling(allowed_updates=[])
+        
+    except Exception as e:
+        logger.critical(f"Bot crashed with error: {e}", exc_info=True)
 
 
 if __name__ == "__main__":
