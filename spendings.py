@@ -199,26 +199,35 @@ def delete_last_spending():
 
 
 def update_spending_category(text, row_number=None):
-    if row_number is None:
-        # Fetch the last row number with data to find where to update the category
-        result = sheet.values().get(spreadsheetId=SPREADSHEET_ID, range=SHEET_NAME).execute()
-        values = result.get('values', [])
-        if values:
-            row_number = len(values)  # This gives us the row index in 1-based indexing
-        else:
-            return "No spending to update"
+    try:
+        sheet = get_sheet_service()
+        
+        if row_number is None:
+            # Fetch the last row number with data to find where to update the category
+            result = sheet.values().get(spreadsheetId=SPREADSHEET_ID, range=SHEET_NAME).execute()
+            values = result.get('values', [])
+            if values:
+                row_number = len(values)  # This gives us the row index in 1-based indexing
+            else:
+                return "No spending to update"
 
-    # Assuming category is in the 6th column ('F')
-    range_to_update = f'{SHEET_NAME}!F{row_number}'
-    values = [[text]]  # The new category text
-    body = {'values': values}
-    result = sheet.values().update(
-        spreadsheetId=SPREADSHEET_ID,
-        range=range_to_update,
-        valueInputOption='USER_ENTERED',
-        body=body
-    ).execute()
-    return "Category updated for the spending"
+        # Assuming category is in the 6th column ('F')
+        range_to_update = f'{SHEET_NAME}!F{row_number}'
+        values = [[text]]  # The new category text
+        body = {'values': values}
+        result = sheet.values().update(
+            spreadsheetId=SPREADSHEET_ID,
+            range=range_to_update,
+            valueInputOption='USER_ENTERED',
+            body=body
+        ).execute()
+        return "Category updated for the spending"
+    except HttpError as e:
+        logger.error(f"Google Sheets API error in update_spending_category: {e}")
+        return f"Error updating category: {e}"
+    except Exception as e:
+        logger.error(f"Unexpected error in update_spending_category: {e}")
+        return f"Unexpected error updating category: {e}"
 
 
 def update_last_spending_category(text):
