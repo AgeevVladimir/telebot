@@ -116,6 +116,12 @@ async def balance(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("Sorry, an error occurred. Please try again.")
 
 
+async def error(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    logger.error(f"Update {update} caused error {context.error}")
+    if update and update.effective_user:
+        logger.error(f"Error for user {update.effective_user.id}")
+
+
 def main():
     try:
         # Validate API key
@@ -131,13 +137,8 @@ def main():
         application.add_handler(CommandHandler("add", add_expense))
         application.add_handler(CommandHandler("report", report))
         application.add_handler(CommandHandler("balance", balance))
-        # Handle text messages in private chats and mentions/commands in groups
-        application.add_handler(MessageHandler(
-            (filters.TEXT & ~filters.COMMAND & filters.ChatType.PRIVATE) | 
-            (filters.TEXT & ~filters.COMMAND & filters.ChatType.GROUPS & filters.Mention()) |
-            (filters.TEXT & ~filters.COMMAND & filters.ChatType.SUPERGROUP & filters.Mention()),
-            handle_message
-        ))
+        # Handle text messages in private chats, and all text in groups (commands will be handled separately)
+        application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
         application.add_error_handler(error)
 
         logger.info('Bot started and polling...')
