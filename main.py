@@ -70,7 +70,11 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await update.message.reply_text("Please send a valid message.")
             return
         
-        logger.info(f"Processing message from chat {update.effective_chat.id}: {text[:50]}...")
+        # In group chats, if Privacy Mode is on, bot only sees commands and mentions
+        # Log to help debug
+        chat_type = "group" if update.effective_chat.id < 0 else "private"
+        logger.info(f"Processing message from {chat_type} chat {update.effective_chat.id}: {text[:50]}...")
+        
         reply_markup = ReplyKeyboardMarkup(keyboard, one_time_keyboard=True, resize_keyboard=True)
         
         response = responses.sample_responses(text)
