@@ -367,16 +367,21 @@ def format_report(report_df, currency):
         for _, row in report_df.iterrows():
             try:
                 day_abbreviation = get_day_abbreviation(pd.to_datetime(row['date']).strftime('%A'))
-                formatted_report += f"{day_abbreviation}. {row['category']:<10} {currency}{row['sum']:<4} {row['comment']}\n"
-                total_sum += float(row['sum'])
-            except (ValueError, KeyError) as e:
+                # Handle None values to prevent format string errors
+                category = str(row['category']) if row['category'] is not None else ''
+                amount = str(row['sum']) if row['sum'] is not None else '0'
+                comment = str(row['comment']) if row['comment'] is not None else ''
+                
+                formatted_report += f"{day_abbreviation}. {category:<10} {currency}{amount:<4} {comment}\n"
+                total_sum += float(amount) if amount else 0
+            except (ValueError, KeyError, TypeError) as e:
                 logger.warning(f"Error formatting row: {e}, skipping")
                 continue
 
         formatted_report += f'Total: {total_sum} {currency}\n'
         return formatted_report.strip()
     except Exception as e:
-        logger.error(f"Error in format_report: {e}")
+        logger.error(f"Error in format_report: {e}", exc_info=True)
         return "Error formatting report"
 
 
@@ -391,16 +396,19 @@ def format_month_report(report_df, currency):
 
         for _, row in report_df.iterrows():
             try:
-                formatted_report += f"{row['category']} {currency}{row['sum']}\n"
-                total_sum += float(row['sum'])
-            except (ValueError, KeyError) as e:
+                # Handle None values
+                category = str(row['category']) if row['category'] is not None else ''
+                amount = float(row['sum']) if row['sum'] is not None else 0
+                formatted_report += f"{category} {currency}{amount}\n"
+                total_sum += amount
+            except (ValueError, KeyError, TypeError) as e:
                 logger.warning(f"Error formatting row: {e}, skipping")
                 continue
 
         formatted_report += f'Total: {total_sum} {currency}\n'
         return formatted_report.strip()
     except Exception as e:
-        logger.error(f"Error in format_month_report: {e}")
+        logger.error(f"Error in format_month_report: {e}", exc_info=True)
         return "Error formatting monthly report"
 
 
@@ -415,9 +423,12 @@ def format_year_report(report_df, currency):
 
         for _, row in report_df.iterrows():
             try:
-                formatted_report += f"{row['category']} {currency}{row['sum']}\n"
-                total_sum += float(row['sum'])
-            except (ValueError, KeyError) as e:
+                # Handle None values
+                category = str(row['category']) if row['category'] is not None else ''
+                amount = float(row['sum']) if row['sum'] is not None else 0
+                formatted_report += f"{category} {currency}{amount}\n"
+                total_sum += amount
+            except (ValueError, KeyError, TypeError) as e:
                 logger.warning(f"Error formatting row: {e}, skipping")
                 continue
 
