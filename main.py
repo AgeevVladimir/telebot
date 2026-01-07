@@ -21,7 +21,7 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 # Allowed chat ID - bot will only respond in this chat
-ALLOWED_CHAT_ID = 106709724
+ALLOWED_CHAT_ID = -4148217207
 
 # Define the keyboard layout
 keyboard = [['💰💰💰  Сколько у нас всего денег 💰💰💰'],
