@@ -298,8 +298,8 @@ def get_total_amount():
                 invest_currency = invest_match.group(1) or CURRENCY
                 invest_amount = (invest_match.group(2) or '').replace('\xa0', ' ').strip()
 
-                # Bold labels and put invest on a new line (Markdown-style)
-                formatted = f"*cash:* {cash_currency}{cash_amount}\n*invest:* {invest_currency}{invest_amount}"
+                # Put invest on a new line (plain text)
+                formatted = f"cash: {cash_currency}{cash_amount}\ninvest: {invest_currency}{invest_amount}"
                 logging.info("Retrieved combined cash/invest balance")
                 return formatted
 
@@ -310,7 +310,7 @@ def get_total_amount():
                 right = parts[1].strip()
                 # Try to normalize left to just the cash portion
                 left = re.sub(r"\bcash\s*:\s*", "", left, flags=re.IGNORECASE).strip()
-                formatted = f"*cash:* {left}\n*invest:* {right}"
+                formatted = f"cash: {left}\ninvest: {right}"
                 return formatted
 
         # Otherwise assume it's a single numeric total, try to format as currency
@@ -326,7 +326,7 @@ def get_total_amount():
         try:
             raw = value_response['values'][0][0]
             # Present raw value with a best-effort line break between cash and invest
-            raw = str(raw).replace(' invest:', '\n*invest:* ').replace('cash:', '*cash:*')
+            raw = str(raw).replace(' invest:', '\ninvest: ').replace('cash:', 'cash:')
             return raw
         except Exception:
             logging.error(f"Value conversion error in get_total_amount: {e}")
