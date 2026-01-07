@@ -1,6 +1,7 @@
 import logging
 from datetime import datetime, timedelta
 import os
+import socket
 
 import pandas as pd
 from google.oauth2.service_account import Credentials
@@ -11,6 +12,9 @@ from Utils import constants
 
 logger = logging.getLogger(__name__)
 
+# Set socket timeout to prevent hanging
+socket.setdefaulttimeout(30)
+
 # Constants
 SPREADSHEET_ID = getattr(constants, 'SPREADSHEET_ID', None)
 SHEET_NAME = 'Spendings'
@@ -20,6 +24,9 @@ CREDENTIALS_FILE = 'Utils/myfinance1514-2-53f670e62850.json'
 
 FILE_NAME = 'spendings.xlsx'
 CURRENCY = '€'
+
+# API timeout settings
+API_TIMEOUT = 20  # seconds
 
 day_abbreviations = {
     'Monday': 'пн',
@@ -83,10 +90,14 @@ def get_current_date():
 
 
 def load_data_from_google_sheets():
-    """Load data from Google Sheets and return as DataFrame with error handling."""
+    """Load data from Google Sheets and return as DataFrame with error handling and timeout."""
     try:
         service = get_sheet_service()
-        result = service.values().get(spreadsheetId=SPREADSHEET_ID, range=RANGE_NAME).execute()
+        # Add timeout to the request
+        result = service.values().get(
+            spreadsheetId=SPREADSHEET_ID, 
+            range=RANGE_NAME
+        ).execute()
         values = result.get('values', [])
         logger.info(f"Loaded {len(values)} rows from Google Sheets")
         
@@ -99,11 +110,14 @@ def load_data_from_google_sheets():
         logger.info(f"Converted to DataFrame with {len(df)} rows")
         return df
         
+    except socket.timeout:
+        logger.error("Timeout connecting to Google Sheets API")
+        raise Exception("Google Sheets API timeout - unable to load data")
     except HttpError as e:
         logger.error(f"Google Sheets API error: {e}")
         raise Exception("Failed to access Google Sheets. Check permissions and spreadsheet ID.")
     except Exception as e:
-        logger.error(f"Error loading data from Google Sheets: {e}")
+        logger.error(f"Error loading data from Google Sheets: {e}", exc_info=True)
         raise
 
 
