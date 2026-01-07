@@ -59,10 +59,61 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             pass
 
 
-async def error(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    logger.error(f"Update {update} caused error {context.error}")
-    if update and update.effective_user:
-        logger.error(f"Error for user {update.effective_user.id}")
+async def add_expense(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Handle /add command for adding expenses in groups"""
+    try:
+        if not update.message or not context.args:
+            await update.message.reply_text("Usage: /add <amount> <description>\nExample: /add 25.50 coffee")
+            return
+        
+        text = ' '.join(context.args)
+        response = responses.sample_responses(text)
+        reply_markup = ReplyKeyboardMarkup(keyboard, one_time_keyboard=True, resize_keyboard=True)
+        await update.message.reply_text(response, reply_markup=reply_markup)
+        logger.info(f"Added expense via command from user {update.effective_user.id}: {text}")
+    except Exception as e:
+        logger.error(f"Error in add_expense command: {e}")
+        await update.message.reply_text("Sorry, an error occurred. Please try again.")
+
+
+async def report(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Handle /report command for getting reports in groups"""
+    try:
+        if not context.args:
+            await update.message.reply_text("Usage: /report <type>\nTypes: day, week, month, year\nExample: /report day")
+            return
+        
+        report_type = context.args[0].lower()
+        if report_type == 'day':
+            text = '📊 День'
+        elif report_type == 'week':
+            text = '📊 Неделя'
+        elif report_type == 'month':
+            text = '📊 Месяц'
+        elif report_type == 'year':
+            text = '📊 Год'
+        else:
+            await update.message.reply_text("Invalid report type. Use: day, week, month, or year")
+            return
+        
+        response = responses.sample_responses(text)
+        await update.message.reply_text(response)
+        logger.info(f"Generated report via command from user {update.effective_user.id}: {report_type}")
+    except Exception as e:
+        logger.error(f"Error in report command: {e}")
+        await update.message.reply_text("Sorry, an error occurred. Please try again.")
+
+
+async def balance(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Handle /balance command for checking total balance in groups"""
+    try:
+        text = '💰💰💰  Сколько у нас всего денег 💰💰💰'
+        response = responses.sample_responses(text)
+        await update.message.reply_text(response)
+        logger.info(f"Checked balance via command from user {update.effective_user.id}")
+    except Exception as e:
+        logger.error(f"Error in balance command: {e}")
+        await update.message.reply_text("Sorry, an error occurred. Please try again.")
 
 
 def main():
@@ -77,7 +128,16 @@ def main():
 
         # Add handlers
         application.add_handler(CommandHandler("start", start))
-        application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
+        application.add_handler(CommandHandler("add", add_expense))
+        application.add_handler(CommandHandler("report", report))
+        application.add_handler(CommandHandler("balance", balance))
+        # Handle text messages in private chats and mentions/commands in groups
+        application.add_handler(MessageHandler(
+            (filters.TEXT & ~filters.COMMAND & filters.ChatType.PRIVATE) | 
+            (filters.TEXT & ~filters.COMMAND & filters.ChatType.GROUPS & filters.Mention()) |
+            (filters.TEXT & ~filters.COMMAND & filters.ChatType.SUPERGROUP & filters.Mention()),
+            handle_message
+        ))
         application.add_error_handler(error)
 
         logger.info('Bot started and polling...')

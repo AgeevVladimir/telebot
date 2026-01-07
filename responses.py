@@ -145,7 +145,7 @@ def sample_responses(user_message):
                 return "Sorry, AI service is currently unavailable."
         
         logger.info(f"Unrecognized message: {user_message[:50]}...")
-        return "I don't understand you. Try:\n• Record single expense: '25.99 coffee'\n• Record multiple expenses (with category assignment):\n  55 аренда\n  35 перевод папе\n  56 продукты\n• Use keyboard buttons for reports\n• Send 'chatgpt <question>' for AI help."
+        return "I don't understand you. Try:\n• Record single expense: '25.99 coffee'\n• Record multiple expenses (with category assignment):\n  55 аренда\n  35 перевод папе\n  56 продукты\n• Use keyboard buttons for reports\n• Send 'chatgpt <question>' for AI help\n\n📱 Group chat commands:\n• /add <amount> <description> - Add expense\n• /report <day|week|month|year> - Get reports\n• /balance - Check total balance\n• Mention bot (@yourbot) for direct messages"
     
     except Exception as e:
         logger.error(f"Unexpected error in sample_responses: {e}")
