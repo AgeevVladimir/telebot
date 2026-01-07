@@ -32,3 +32,8 @@ tzdata==2023.4
 tzlocal==5.2
 urllib3==2.1.0
 google~=3.0.0
+
+# Testing dependencies
+pytest>=7.0.0
+pytest-mock>=3.10.0
+pytest-cov>=4.0.0
