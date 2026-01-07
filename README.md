@@ -1,13 +1,12 @@
 # Telegram Finance Tracker Bot
 
-A Telegram bot for tracking personal finances, viewing spending statistics, and managing expenses with AI-powered responses.
+A Telegram bot for tracking personal finances, viewing spending statistics, and managing expenses.
 
 ## Features
 
 - **Finance Tracking**: Record and categorize daily expenses
 - **Statistics View**: Check spending by day, week, month, or year
 - **Total Balance Check**: View current total money
-- **AI Integration**: Get smart responses using local Ollama (free and private)
 - **Google Sheets Integration**: Store data in a Google Spreadsheet
 - **Persistent Keyboard**: Easy access to common functions
 
@@ -26,14 +25,12 @@ A Telegram bot for tracking personal finances, viewing spending statistics, and 
 
 3. Set up environment variables or create `Utils/constants.py` with your API keys:
    ```python
-   OPENAI_API_KEY = 'your-openai-api-key'
    SPREADSHEET_ID = 'your-google-spreadsheet-id'
    API_KEY = 'your-telegram-bot-token'
    ```
 
    **Security Note**: Never commit `constants.py` to version control. Use environment variables instead:
    ```bash
-   export OPENAI_API_KEY='your-key'
    export SPREADSHEET_ID='your-id'
    export API_KEY='your-token'
    ```
@@ -50,12 +47,6 @@ A Telegram bot for tracking personal finances, viewing spending statistics, and 
 2. Share it with your service account email (from the JSON file)
 3. Get the spreadsheet ID from the URL
 4. Place your service account JSON file in `Utils/` (ensure it's ignored in .gitignore)
-
-### Local AI (Ollama)
-1. Install Ollama: `brew install ollama`
-2. Start Ollama service: `brew services start ollama`
-3. Pull a model: `ollama pull llama2`
-4. The bot will use local AI for responses (no API keys needed!)
 
 ## Testing
 
@@ -92,7 +83,6 @@ The project includes comprehensive unit and integration tests.
 The test suite covers:
 - **Message Processing**: Input validation, command handling, error responses
 - **Google Sheets Integration**: CRUD operations, error handling, data formatting
-- **AI Integration**: Ollama API calls, timeout handling, response parsing
 - **Data Processing**: Report generation, date handling, currency formatting
 - **Integration Tests**: End-to-end workflows combining multiple components
 
@@ -109,7 +99,6 @@ The test suite covers:
    - Check total balance
    - View spending statistics by time period
    - Record expenses by category
-   - Get AI responses for queries
 
 ## Categories
 
@@ -135,7 +124,7 @@ Available spending categories:
 Build and run with Docker:
 ```bash
 docker build -t telebot .
-docker run -e OPENAI_API_KEY='your-key' -e SPREADSHEET_ID='your-id' -e API_KEY='your-token' telebot
+docker run -e SPREADSHEET_ID='your-id' -e API_KEY='your-token' telebot
 ```
 
 ## Render Deployment

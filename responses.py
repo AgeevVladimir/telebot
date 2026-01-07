@@ -1,5 +1,4 @@
 import logging
-import openAI
 import spendings
 
 logger = logging.getLogger(__name__)
@@ -148,16 +147,8 @@ def sample_responses(user_message):
                 logger.error(f"Error getting total amount: {e}")
                 return "Error retrieving total balance."
         
-        # Check for AI queries
-        if user_message.lower().startswith("chatgpt"):
-            try:
-                return openAI.getChatGPTanswer(user_message)
-            except Exception as e:
-                logger.error(f"Error getting AI response: {e}")
-                return "Sorry, AI service is currently unavailable."
-        
         logger.info(f"Unrecognized message: {user_message[:50]}...")
-        return "I don't understand you. Try:\n• Record single expense: '25.99 coffee'\n• Record multiple expenses (with category assignment):\n  55 аренда\n  35 перевод папе\n  56 продукты\n• Use keyboard buttons for reports\n• Send 'chatgpt <question>' for AI help."
+        return "I don't understand you. Try:\n• Record single expense: '25.99 coffee'\n• Record multiple expenses (with category assignment):\n  55 аренда\n  35 перевод папе\n  56 продукты\n• Use keyboard buttons for reports."
     
     except Exception as e:
         logger.error(f"Unexpected error in sample_responses: {e}")

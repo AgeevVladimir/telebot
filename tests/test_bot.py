@@ -9,7 +9,6 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 import responses
 import spendings
-import openAI
 
 
 class TestResponses:
@@ -76,14 +75,6 @@ class TestResponses:
         result = responses.sample_responses("💰💰💰  Сколько у нас всего денег 💰💰💰")
         mock_total.assert_called_once()
         assert "€ 1000.00" in result
-
-    @patch('openAI.getChatGPTanswer')
-    def test_sample_responses_ai_query(self, mock_ai):
-        """Test AI query processing"""
-        mock_ai.return_value = "AI response"
-        result = responses.sample_responses("chatgpt How are you?")
-        mock_ai.assert_called_once_with("chatgpt How are you?")
-        assert "AI response" in result
 
     def test_sample_responses_unrecognized_message(self):
         """Test unrecognized message handling"""
@@ -208,50 +199,6 @@ class TestSpendings:
         """Test day abbreviation function"""
         assert spendings.get_day_abbreviation('Monday') == 'пн'
         assert spendings.get_day_abbreviation('Invalid') == 'Invalid'
-
-
-class TestOpenAI:
-    """Test cases for AI integration in openAI.py"""
-
-    @patch('requests.post')
-    def test_getChatGPTanswer_success(self, mock_post):
-        """Test successful AI response"""
-        mock_response = Mock()
-        mock_response.status_code = 200
-        mock_response.json.return_value = {'response': 'Hello from AI'}
-        mock_post.return_value = mock_response
-
-        result = openAI.getChatGPTanswer("chatgpt Hello")
-        assert "Hello from AI" in result
-
-    @patch('openAI.requests.post')
-    def test_getChatGPTanswer_error(self, mock_post):
-        """Test AI response error handling"""
-        from requests.exceptions import ConnectionError
-        mock_post.side_effect = ConnectionError("Connection failed")
-        result = openAI.getChatGPTanswer("chatgpt Hello")
-        assert "Cannot connect to AI service" in result
-
-    @patch('requests.post')
-    @patch('time.sleep')
-    def test_get_ollama_response_success(self, mock_sleep, mock_post):
-        """Test successful Ollama response"""
-        mock_response = Mock()
-        mock_response.status_code = 200
-        mock_response.json.return_value = {'response': 'Ollama response'}
-        mock_post.return_value = mock_response
-
-        result = openAI.getChatGPTanswer("chatgpt test")
-        assert "Ollama response" in result
-
-    @patch('requests.post')
-    def test_get_ollama_response_timeout(self, mock_post):
-        """Test Ollama response timeout"""
-        from requests.exceptions import Timeout
-        mock_post.side_effect = Timeout("Request timed out")
-
-        result = openAI.getChatGPTanswer("chatgpt test")
-        assert "timed out" in result
 
 
 class TestIntegration:
