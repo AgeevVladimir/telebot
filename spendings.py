@@ -67,7 +67,18 @@ def save_spending(text):
         valueInputOption='USER_ENTERED',
         body=body
     ).execute()
-    return "Spending saved. Don't forget to choose Category"
+
+    # Extract the row number from the updated range
+    updated_range = result.get('updates', {}).get('updatedRange', '')
+    if updated_range:
+        # Parse the range like 'Spendings!A5:F5' to get row 5
+        row_number = int(updated_range.split('!')[1].split(':')[0][1:])  # Extract number from A5
+    else:
+        # Fallback: get the last row
+        sheet_data = sheet.values().get(spreadsheetId=SPREADSHEET_ID, range=SHEET_NAME).execute()
+        row_number = len(sheet_data.get('values', []))
+
+    return "Spending saved. Don't forget to choose Category", row_number
 
 
 def delete_last_spending():
@@ -96,25 +107,32 @@ def delete_last_spending():
         return "No spending to delete"
 
 
+def update_spending_category(text, row_number=None):
+    if row_number is None:
+        # Fetch the last row number with data to find where to update the category
+        result = sheet.values().get(spreadsheetId=SPREADSHEET_ID, range=SHEET_NAME).execute()
+        values = result.get('values', [])
+        if values:
+            row_number = len(values)  # This gives us the row index in 1-based indexing
+        else:
+            return "No spending to update"
+
+    # Assuming category is in the 6th column ('F')
+    range_to_update = f'{SHEET_NAME}!F{row_number}'
+    values = [[text]]  # The new category text
+    body = {'values': values}
+    result = sheet.values().update(
+        spreadsheetId=SPREADSHEET_ID,
+        range=range_to_update,
+        valueInputOption='USER_ENTERED',
+        body=body
+    ).execute()
+    return "Category updated for the spending"
+
+
 def update_last_spending_category(text):
-    # Fetch the last row number with data to find where to update the category
-    result = sheet.values().get(spreadsheetId=SPREADSHEET_ID, range=SHEET_NAME).execute()
-    values = result.get('values', [])
-    if values:
-        last_row = len(values)  # This gives us the row index in 1-based indexing
-        # Assuming category is in the 6th column ('F')
-        range_to_update = f'{SHEET_NAME}!F{last_row}'
-        values = [[text]]  # The new category text
-        body = {'values': values}
-        result = sheet.values().update(
-            spreadsheetId=SPREADSHEET_ID,
-            range=range_to_update,
-            valueInputOption='USER_ENTERED',
-            body=body
-        ).execute()
-        return "Category updated for the last spending"
-    else:
-        return "No spending to update"
+    """Backward compatibility function"""
+    return update_spending_category(text)
 
 
 def get_total_amount():
