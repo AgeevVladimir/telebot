@@ -1,5 +1,6 @@
-from telegram import Update, ReplyKeyboardMarkup
-from telegram.ext import Updater, MessageHandler, Filters, CallbackContext, CommandHandler
+from telegram import Update
+from telegram.ext import Application, CommandHandler, MessageHandler, filters, ContextTypes, JobQueue
+import pytz
 
 import responses as responses
 from Utils import constants as keys
@@ -12,36 +13,37 @@ keyboard = [['💰💰💰  Сколько у нас всего денег 💰�
             ['🎁 Подарки', '👕 Шоппинг', '🐈‍⬛ Котики', '🏡 Ремонт'],
             ['🌐 Сервисы', '📚 Образование', '✈️ Путешествия', '🌎 Прочее']]
 
-reply_markup = ReplyKeyboardMarkup(keyboard, one_time_keyboard=True, resize_keyboard=True)
+reply_markup = None  # Will be set in handlers
 
 
-def start(update, context):
-    update.message.reply_text("Bot started! Daily notifications will be sent at 8 PM.")
+async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    from telegram import ReplyKeyboardMarkup
+    reply_markup = ReplyKeyboardMarkup(keyboard, one_time_keyboard=True, resize_keyboard=True)
+    await update.message.reply_text("Bot started! Daily notifications will be sent at 8 PM.", reply_markup=reply_markup)
 
 
-def handle_message(update: Update, context: CallbackContext):
+async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    from telegram import ReplyKeyboardMarkup
+    reply_markup = ReplyKeyboardMarkup(keyboard, one_time_keyboard=True, resize_keyboard=True)
     text = update.message.text
     response = responses.sample_responses(text)
-    update.message.reply_text(response, reply_markup=reply_markup)
+    await update.message.reply_text(response, reply_markup=reply_markup)
 
 
-def error(update: Update, context: CallbackContext):
+async def error(update: Update, context: ContextTypes.DEFAULT_TYPE):
     print(f"Update {update} caused error {context.error}")
 
 
 def main():
-    updater = Updater(keys.API_KEY, use_context=True)
-    dp = updater.dispatcher
+    application = Application.builder().token(keys.API_KEY).job_queue(None).build()
     print('Bot started')
 
     # Add handlers for the commands
-    dp.add_handler(CommandHandler("start", start))
-    dp.add_handler(MessageHandler(Filters.text & ~Filters.command, handle_message))
-    dp.add_error_handler(error)
+    application.add_handler(CommandHandler("start", start))
+    application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
+    application.add_error_handler(error)
 
-    updater.start_polling()
-
-    updater.idle()
+    application.run_polling()
 
 
 if __name__ == "__main__":

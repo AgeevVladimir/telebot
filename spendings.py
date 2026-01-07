@@ -7,11 +7,11 @@ from googleapiclient.discovery import build
 from Utils import constants
 
 # Constants
-SPREADSHEET_ID = constants.GOOGLE_SHEET_ID
+SPREADSHEET_ID = constants.SPREADSHEET_ID
 SHEET_NAME = 'Spendings'
 RANGE_NAME = f'{SHEET_NAME}!A1:Z'  # Adjust based on where you want to start reading/writing
 SCOPES = ['https://www.googleapis.com/auth/spreadsheets']
-CREDENTIALS_FILE = 'Utils/google_Api.json'
+CREDENTIALS_FILE = 'Utils/myfinance1514-2-53f670e62850.json'
 
 # Authenticate and create the service
 credentials = Credentials.from_service_account_file(CREDENTIALS_FILE, scopes=SCOPES)

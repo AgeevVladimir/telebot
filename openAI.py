@@ -1,22 +1,21 @@
-from openai import OpenAI
-
-from Utils import constants
-
+import requests
 
 def getChatGPTanswer(text):
-    client = OpenAI(api_key=constants.OPENAI_API_KEY)
     # Processing the text input
     words = text.split()
     if len(words) > 0:
         words.pop(0)
-    text_for_chatgpt = " ".join(words)
+    prompt = " ".join(words)
 
-    response = client.chat.completions.create(
-        model="gpt-3.5-turbo",
-        messages=[
-            {"role": "system", "content": text_for_chatgpt}
-        ]
-    )
+    # Call Ollama API
+    response = requests.post('http://localhost:11434/api/generate', json={
+        'model': 'llama2',
+        'prompt': prompt,
+        'stream': False
+    })
 
-    generated_text = response.choices[0].text.strip()
-    return generated_text
+    if response.status_code == 200:
+        data = response.json()
+        return data.get('response', 'No response from Ollama')
+    else:
+        return f'Error: {response.status_code} - {response.text}'
