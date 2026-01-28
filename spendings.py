@@ -1,4 +1,5 @@
 import logging
+import functools
 from datetime import datetime, timedelta
 import os
 import socket
@@ -41,6 +42,23 @@ day_abbreviations = {
 
 # Global service object (lazy initialization)
 _service = None
+
+
+def handle_sheets_errors(error_message="Error processing request"):
+    """Decorator for consistent error handling in Google Sheets operations."""
+    def decorator(func):
+        @functools.wraps(func)
+        def wrapper(*args, **kwargs):
+            try:
+                return func(*args, **kwargs)
+            except HttpError as e:
+                logger.error(f"Google Sheets API error in {func.__name__}: {e}")
+                return f"{error_message}: API error"
+            except Exception as e:
+                logger.error(f"Unexpected error in {func.__name__}: {e}", exc_info=True)
+                return f"{error_message}: {str(e)}"
+        return wrapper
+    return decorator
 
 
 def get_sheet_service():
@@ -190,86 +208,69 @@ def save_spending(text):
         return f"Unexpected error saving spending: {e}", None
 
 
+@handle_sheets_errors("Error deleting spending")
 def delete_last_spending():
-    """Delete the last spending entry from Google Sheets with error handling."""
-    try:
-        sheet = get_sheet_service()
-        
-        # First, get all values to find the last row
+    """Delete the last spending entry from Google Sheets."""
+    sheet = get_sheet_service()
+    
+    # Get all values to find the last row
+    result = sheet.values().get(spreadsheetId=SPREADSHEET_ID, range=SHEET_NAME).execute()
+    values = result.get('values', [])
+    
+    if not values or len(values) <= 1:  # Only header or empty
+        return "No spending entries to delete"
+    
+    # Find the last non-empty row (excluding header)
+    last_row_index = len(values)
+    
+    # Clear the last row
+    range_to_clear = f'{SHEET_NAME}!A{last_row_index}:F{last_row_index}'
+    body = {'values': [['', '', '', '', '', '']]}  # Clear all columns
+    
+    sheet.values().update(
+        spreadsheetId=SPREADSHEET_ID,
+        range=range_to_clear,
+        valueInputOption='USER_ENTERED',
+        body=body
+    ).execute()
+    
+    logger.info(f"Deleted last spending entry (row {last_row_index})")
+    return "Last spending entry deleted successfully"
+
+
+@handle_sheets_errors("Error updating category")
+def update_last_spending_category(text, row_number=None):
+    """Update the category for a spending entry.
+    
+    Args:
+        text: Category name to set
+        row_number: Specific row to update (optional, defaults to last row)
+    """
+    if not text or not text.strip():
+        return "Please provide a valid category"
+    
+    sheet = get_sheet_service()
+    
+    # If row_number not provided, fetch the last row
+    if row_number is None:
         result = sheet.values().get(spreadsheetId=SPREADSHEET_ID, range=SHEET_NAME).execute()
         values = result.get('values', [])
-        
-        if not values or len(values) <= 1:  # Only header or empty
-            return "No spending entries to delete"
-        
-        # Find the last non-empty row (excluding header)
-        last_row_index = len(values)
-        
-        # Clear the last row
-        range_to_clear = f'{SHEET_NAME}!A{last_row_index}:F{last_row_index}'
-        body = {'values': [['', '', '', '', '', '']]}  # Clear all columns
-        
-        result = sheet.values().update(
-            spreadsheetId=SPREADSHEET_ID,
-            range=range_to_clear,
-            valueInputOption='USER_ENTERED',
-            body=body
-        ).execute()
-        
-        logger.info(f"Deleted last spending entry (row {last_row_index})")
-        return "Last spending entry deleted successfully"
-        
-    except HttpError as e:
-        logger.error(f"Google Sheets API error in delete_last_spending: {e}")
-        return f"Error deleting spending: {e}"
-    except Exception as e:
-        logger.error(f"Unexpected error in delete_last_spending: {e}")
-        return f"Unexpected error deleting spending: {e}"
-
-
-def update_spending_category(text, row_number=None):
-    try:
-        sheet = get_sheet_service()
-        
-        if row_number is None:
-            # Fetch the last row number with data to find where to update the category
-            result = sheet.values().get(spreadsheetId=SPREADSHEET_ID, range=SHEET_NAME).execute()
-            values = result.get('values', [])
-            if values:
-                row_number = len(values)  # This gives us the row index in 1-based indexing
-            else:
-                return "No spending to update"
-
-        # Assuming category is in the 6th column ('F')
-        range_to_update = f'{SHEET_NAME}!F{row_number}'
-        values = [[text]]  # The new category text
-        body = {'values': values}
-        result = sheet.values().update(
-            spreadsheetId=SPREADSHEET_ID,
-            range=range_to_update,
-            valueInputOption='USER_ENTERED',
-            body=body
-        ).execute()
-        return "Category updated for the spending"
-    except HttpError as e:
-        logger.error(f"Google Sheets API error in update_spending_category: {e}")
-        return f"Error updating category: {e}"
-    except Exception as e:
-        logger.error(f"Unexpected error in update_spending_category: {e}")
-        return f"Unexpected error updating category: {e}"
-
-
-def update_last_spending_category(text):
-    """Update the category for the last spending entry with error handling."""
-    try:
-        if not text or not text.strip():
-            return "Please provide a valid category"
-        
-        return update_spending_category(text)
-        
-    except Exception as e:
-        logger.error(f"Unexpected error in update_last_spending_category: {e}")
-        return f"Unexpected error updating category: {e}"
+        if not values or len(values) <= 1:
+            return "No spending to update"
+        row_number = len(values)
+    
+    # Update category in column F
+    range_to_update = f'{SHEET_NAME}!F{row_number}'
+    body = {'values': [[text]]}
+    sheet.values().update(
+        spreadsheetId=SPREADSHEET_ID,
+        range=range_to_update,
+        valueInputOption='USER_ENTERED',
+        body=body
+    ).execute()
+    
+    logger.info(f"Category updated to '{text}' for row {row_number}")
+    return "Category updated for the spending"
 
 
 def get_total_amount():
@@ -370,7 +371,7 @@ def get_report(text):
                 category_month_report = df[(df['month'].str.contains(current_date['month'])) &
                                            (df['year'].astype(int) == int(current_date['year']))]
                 df_excluded_sum = category_month_report.groupby('category')['sum'].sum().reset_index()
-                return format_month_report(df_excluded_sum, CURRENCY)
+                return format_category_report(df_excluded_sum, CURRENCY, '%Y.%m')
             except Exception as e:
                 logger.error(f"Error generating monthly report: {e}")
                 return "Error generating monthly report"
@@ -380,7 +381,7 @@ def get_report(text):
                 df['sum'] = df['sum'].astype(float)
                 category_year_report = df[df['year'].astype(int) == int(current_date['year'])]
                 df_excluded_sum = category_year_report.groupby('category')['sum'].sum().reset_index()
-                return format_year_report(df_excluded_sum, CURRENCY)
+                return format_category_report(df_excluded_sum, CURRENCY, '%Y')
             except Exception as e:
                 logger.error(f"Error generating yearly report: {e}")
                 return "Error generating yearly report"
@@ -423,18 +424,23 @@ def format_report(report_df, currency):
         return "Error formatting report"
 
 
-def format_month_report(report_df, currency):
-    """Format monthly spending report with error handling."""
+def format_category_report(report_df, currency, period_format='%Y.%m'):
+    """Format category-based spending report (for month/year).
+    
+    Args:
+        report_df: DataFrame with category-grouped spending data
+        currency: Currency symbol to display
+        period_format: strftime format for the period header ('%Y.%m' for month, '%Y' for year)
+    """
     try:
         if report_df.empty:
-            return f'{datetime.now().strftime("%Y.%m")}\nNo data to display'
+            return f'{datetime.now().strftime(period_format)}\nNo data to display'
             
-        formatted_report = f'{datetime.now().strftime("%Y.%m")}\n'
+        formatted_report = f'{datetime.now().strftime(period_format)}\n'
         total_sum = 0
 
         for _, row in report_df.iterrows():
             try:
-                # Handle None values
                 category = str(row['category']) if row['category'] is not None else ''
                 amount = float(row['sum']) if row['sum'] is not None else 0
                 formatted_report += f"{category} {currency}{amount}\n"
@@ -446,69 +452,5 @@ def format_month_report(report_df, currency):
         formatted_report += f'Total: {total_sum} {currency}\n'
         return formatted_report.strip()
     except Exception as e:
-        logger.error(f"Error in format_month_report: {e}", exc_info=True)
-        return "Error formatting monthly report"
-
-
-def format_year_report(report_df, currency):
-    """Format yearly spending report with error handling."""
-    try:
-        if report_df.empty:
-            return f'{datetime.now().strftime("%Y")}\nNo data to display'
-            
-        formatted_report = f'{datetime.now().strftime("%Y")}\n'
-        total_sum = 0
-
-        for _, row in report_df.iterrows():
-            try:
-                # Handle None values
-                category = str(row['category']) if row['category'] is not None else ''
-                amount = float(row['sum']) if row['sum'] is not None else 0
-                formatted_report += f"{category} {currency}{amount}\n"
-                total_sum += amount
-            except (ValueError, KeyError, TypeError) as e:
-                logger.warning(f"Error formatting row: {e}, skipping")
-                continue
-
-        formatted_report += f'Total: {total_sum} {currency}\n'
-        return formatted_report.strip()
-    except Exception as e:
-        logger.error(f"Error in format_year_report: {e}")
-        return "Error formatting yearly report"
-
-
-def delete_last_spending():
-    """Delete the last spending entry from Google Sheets with error handling."""
-    try:
-        sheet = get_sheet_service()
-        
-        # First, get all values to find the last row
-        result = sheet.values().get(spreadsheetId=SPREADSHEET_ID, range=SHEET_NAME).execute()
-        values = result.get('values', [])
-        
-        if not values or len(values) <= 1:  # Only header or empty
-            return "No spending entries to delete"
-        
-        # Find the last non-empty row (excluding header)
-        last_row_index = len(values)
-        
-        # Clear the last row
-        range_to_clear = f'{SHEET_NAME}!A{last_row_index}:F{last_row_index}'
-        body = {'values': [['', '', '', '', '', '']]}  # Clear all columns
-        
-        result = sheet.values().update(
-            spreadsheetId=SPREADSHEET_ID,
-            range=range_to_clear,
-            valueInputOption='USER_ENTERED',
-            body=body
-        ).execute()
-        
-        logger.info(f"Deleted last spending entry (row {last_row_index})")
-        return "Last spending entry deleted successfully"
-        
-    except HttpError as e:
-        logger.error(f"Google Sheets API error in delete_last_spending: {e}")
-        return f"Error deleting spending: {e}"
-    except Exception as e:
-        logger.error(f"Unexpected error in delete_last_spending: {e}")
-        return f"Unexpected error deleting spending: {e}"
+        logger.error(f"Error in format_category_report: {e}", exc_info=True)
+        return "Error formatting report"
