@@ -8,18 +8,30 @@ categories = ['🛒 Продукты', '👶 Дети', '🚇 Транспорт
               '🎁 Подарки', '👕 Шоппинг', '🐈‍⬛ Котики', '🏡 Ремонт',
               '🌐 Сервисы', '📚 Образование', '✈️ Путешествия', '🌎 Прочее']
 
-pending_expenses = []  # List of tuples: (expense_text, row_number)
+
+def get_pending_expenses(user_id, context_data):
+    """Get pending expenses for specific user from context."""
+    return context_data.get(f'pending_{user_id}', [])
 
 
-def process_multiple_expenses(expense_lines):
+def set_pending_expenses(user_id, context_data, expenses):
+    """Set pending expenses for specific user in context."""
+    context_data[f'pending_{user_id}'] = expenses
+
+
+def process_multiple_expenses(expense_lines, user_id=None, context_data=None):
     """Process multiple expense lines, save them, and queue for category assignment."""
-    global pending_expenses
+    if context_data is None:
+        context_data = {}
+    if user_id is None:
+        user_id = 'default'
+    
     results = []
     total_amount = 0.0
     successful_count = 0
     
-    # Clear any previous pending expenses
-    pending_expenses.clear()
+    # Clear any previous pending expenses for this user
+    pending = []
     
     for line in expense_lines:
         line = line.strip()
@@ -44,7 +56,7 @@ def process_multiple_expenses(expense_lines):
                         amount = float(parts[0])
                         total_amount += amount
                         # Add to pending expenses for category assignment with row number
-                        pending_expenses.append((line, row_number))
+                        pending.append((line, row_number))
                     except ValueError:
                         pass
                 results.append(f"✅ {line}: {msg}")
@@ -59,18 +71,27 @@ def process_multiple_expenses(expense_lines):
         summary += f" (Total: {total_amount:.2f})"
     
     # If we have pending expenses, start category assignment
-    if pending_expenses:
-        summary += f"\n\n🎯 Now let's assign categories. First expense: '{pending_expenses[0][0]}'\nPlease select a category:"
+    if pending:
+        set_pending_expenses(user_id, context_data, pending)
+        summary += f"\n\n🎯 Now let's assign categories. First expense: '{pending[0][0]}'\nPlease select a category:"
     
     return summary + "\n\n" + "\n".join(results)
 
 
-def sample_responses(user_message):
+def sample_responses(user_message, user_id=None, context_data=None):
     """
     Process user message and return appropriate response.
     Handles spending tracking, reports, and AI queries.
+    
+    Args:
+        user_message: The message text from user
+        user_id: User ID for tracking pending expenses
+        context_data: Dictionary for storing user-specific data
     """
-    global pending_expenses
+    if context_data is None:
+        context_data = {}
+    if user_id is None:
+        user_id = 'default'
     
     try:
         if not user_message or not isinstance(user_message, str):
@@ -84,16 +105,18 @@ def sample_responses(user_message):
         # Check for multi-row expenses (multiple lines, each starting with digit)
         lines = [line.strip() for line in user_message.split('\n') if line.strip()]
         if len(lines) > 1 and all(line[0].isdigit() for line in lines):
-            return process_multiple_expenses(lines)
+            return process_multiple_expenses(lines, user_id, context_data)
 
         # Handle category selection for pending expenses
+        pending_expenses = get_pending_expenses(user_id, context_data)
         if pending_expenses and user_message in categories:
             # Get the first pending expense (expense_text, row_number)
             expense_text, row_number = pending_expenses[0]
             # Assign category to the specific row
-            result = spendings.update_spending_category(user_message, row_number)
+            result = spendings.update_last_spending_category(user_message, row_number)
             # Remove the processed expense from pending list
             pending_expenses.pop(0)
+            set_pending_expenses(user_id, context_data, pending_expenses)
             
             if pending_expenses:
                 # More expenses to categorize

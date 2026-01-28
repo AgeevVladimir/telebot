@@ -1,13 +1,9 @@
 import logging
-import asyncio
-import time
-import signal
 import socket
 from telegram import Update, ReplyKeyboardMarkup
 from telegram.ext import Application, CommandHandler, MessageHandler, filters, ContextTypes
-import pytz
 
-import responses as responses
+import responses
 from Utils import constants as keys
 
 # Set socket timeout globally to prevent hanging on API calls
@@ -77,7 +73,9 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         
         reply_markup = ReplyKeyboardMarkup(keyboard, one_time_keyboard=True, resize_keyboard=True)
         
-        response = responses.sample_responses(text)
+        # Pass user_id and context.user_data to responses
+        user_id = update.effective_user.id
+        response = responses.sample_responses(text, user_id=user_id, context_data=context.user_data)
         
         await update.message.reply_text(response, reply_markup=reply_markup)
         logger.info(f"Message processed successfully in chat {update.effective_chat.id}")
@@ -110,7 +108,8 @@ async def add_expense(update: Update, context: ContextTypes.DEFAULT_TYPE):
             return
         
         text = ' '.join(context.args)
-        response = responses.sample_responses(text)
+        user_id = update.effective_user.id
+        response = responses.sample_responses(text, user_id=user_id, context_data=context.user_data)
         reply_markup = ReplyKeyboardMarkup(keyboard, one_time_keyboard=True, resize_keyboard=True)
         await update.message.reply_text(response, reply_markup=reply_markup)
         logger.info(f"Expense added via command in chat {update.effective_chat.id}")

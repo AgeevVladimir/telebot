@@ -116,9 +116,18 @@ class TestSpendings:
         """Test saving valid spending"""
         mock_sheet = Mock()
         mock_service.return_value = mock_sheet
+        
+        # Mock the append result with proper structure
+        mock_append_result = Mock()
+        mock_append_result.execute.return_value = {
+            'updates': {
+                'updatedRange': 'Spendings!A5:F5'
+            }
+        }
+        mock_sheet.values().append.return_value = mock_append_result
 
         result = spendings.save_spending("10.50 coffee")
-        assert "Spending saved" in result
+        assert "Spending saved" in result[0]  # result is a tuple now
         mock_sheet.values().append.assert_called_once()
 
     def test_save_spending_invalid_amount(self):
