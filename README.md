@@ -1,5 +1,4 @@
 # Telegram Finance Tracker Bot
-
 A Telegram bot for tracking personal finances, viewing spending statistics, and managing expenses.
 
 ## Features
@@ -23,7 +22,17 @@ A Telegram bot for tracking personal finances, viewing spending statistics, and 
    pip install -r requirements.txt
    ```
 
-3. Set up environment variables or create `Utils/constants.py` with your API keys:
+3. Configure the bot (recommended: environment variables):
+
+   Required env vars:
+   ```bash
+   export API_KEY='your-telegram-bot-token'
+   export SPREADSHEET_ID='your-google-spreadsheet-id'
+   # Optional: restrict which chats the bot will answer in
+   export ALLOWED_CHAT_IDS='106709724,-4148217207'
+   ```
+
+   Alternative (local dev): create `Utils/constants.py`:
    ```python
    SPREADSHEET_ID = 'your-google-spreadsheet-id'
    API_KEY = 'your-telegram-bot-token'
@@ -46,7 +55,11 @@ A Telegram bot for tracking personal finances, viewing spending statistics, and 
 1. Create a Google Spreadsheet
 2. Share it with your service account email (from the JSON file)
 3. Get the spreadsheet ID from the URL
-4. Place your service account JSON file in `Utils/` (ensure it's ignored in .gitignore)
+4. Provide Google service account credentials (one of the options):
+
+   Option A (recommended for hosting): set env var `GOOGLE_CREDENTIALS_JSON` to the full JSON contents.
+
+   Option B: mount/provide a credentials file and set `GOOGLE_CREDENTIALS_FILE` (defaults to `Utils/myfinance1514-2-53f670e62850.json`).
 
 ## Testing
 
@@ -124,32 +137,36 @@ Available spending categories:
 Build and run with Docker:
 ```bash
 docker build -t telebot .
-docker run -e SPREADSHEET_ID='your-id' -e API_KEY='your-token' telebot
+docker run \
+   -e API_KEY='your-token' \
+   -e SPREADSHEET_ID='your-id' \
+   -e ALLOWED_CHAT_IDS='106709724,-4148217207' \
+   -e GOOGLE_CREDENTIALS_JSON='{"type":"service_account",...}' \
+   telebot
 ```
 
-## Render Deployment
+## Render Deployment (Polling)
 
-Deploy to Render for 24/7 hosting:
+For polling bots, use a background worker (not a web service) so the process stays alive.
 
 1. **Fork and Clone**: Fork this repository to your GitHub account
 
 2. **Create Render Service**:
    - Go to [Render](https://render.com) and create a new account
-   - Click "New +" and select "Web Service"
+    - Click "New +" and select **Background Worker**
    - Connect your GitHub repository
    - Configure the service:
-     - **Name**: `telebot` (or your choice)
-     - **Environment**: `Python 3`
+       - **Name**: `telebot` (or your choice)
+       - **Environment**: `Python 3`
      - **Build Command**: `pip install -r requirements.txt`
-     - **Start Command**: `gunicorn --bind 0.0.0.0:$PORT app:app`
+       - **Start Command**: `python main.py`
 
 3. **Set Environment Variables**:
    In Render dashboard, go to your service → Environment → Add Environment Variable:
-   - `TELEGRAM_BOT_TOKEN`: Your bot token from @BotFather
+   - `API_KEY`: Your bot token from @BotFather
    - `SPREADSHEET_ID`: Your Google Spreadsheet ID
-   - `OPENAI_API_KEY`: Your OpenAI API key (optional, for AI features)
+   - `ALLOWED_CHAT_IDS`: Optional, comma-separated chat ids the bot will answer in
    - `GOOGLE_CREDENTIALS_JSON`: The entire JSON content of your Google service account credentials file
-   - `PORT`: Will be set automatically by Render
 
 4. **Google Credentials**:
    - Get your Google service account JSON file content
@@ -161,15 +178,10 @@ Deploy to Render for 24/7 hosting:
    - Render will build and deploy your bot
    - Once deployed, your bot will be running 24/7
 
-6. **Health Check**:
-   - Visit `https://your-service-name.onrender.com/health` to verify the service is running
-   - The bot will start automatically when the web service starts
-
 ## Project Structure
 
 - `main.py`: Main bot logic and Telegram handlers
 - `responses.py`: Message processing and responses
-- `openAI.py`: Local Ollama integration for AI responses
 - `spendings.py`: Spending tracking functionality
 - `Utils/constants.py`: API keys and configuration (ignored)
 - `Utils/myfinance1514-2-53f670e62850.json`: Google service account credentials (ignored)

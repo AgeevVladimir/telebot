@@ -1,10 +1,15 @@
 import logging
+import os
 import socket
 from telegram import Update, ReplyKeyboardMarkup
 from telegram.ext import Application, CommandHandler, MessageHandler, filters, ContextTypes
 
 import responses
-from Utils import constants as keys
+
+try:
+    from Utils import constants as keys
+except Exception:
+    keys = None
 
 # Set socket timeout globally to prevent hanging on API calls
 socket.setdefaulttimeout(30)
@@ -16,11 +21,48 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-# Allowed chat IDs - bot will respond in these chats only
-ALLOWED_CHAT_IDS = [
-    106709724,      # Your private chat with bot
-    -4148217207     # Group chat with your wife
+# Avoid leaking bot token in logs via httpx request URLs
+logging.getLogger('httpx').setLevel(logging.WARNING)
+
+DEFAULT_ALLOWED_CHAT_IDS = [
+    106709724,
+    -4148217207,
 ]
+
+
+def _parse_allowed_chat_ids(value: str | None) -> list[int]:
+    if not value:
+        return DEFAULT_ALLOWED_CHAT_IDS
+
+    # Supports: "123,-456" or "123 -456" or "[123, -456]"
+    raw = value.strip()
+    if raw.startswith('[') and raw.endswith(']'):
+        raw = raw[1:-1]
+
+    parts = [p.strip() for p in raw.replace('\n', ',').replace(' ', ',').split(',') if p.strip()]
+    chat_ids: list[int] = []
+    for part in parts:
+        try:
+            chat_ids.append(int(part))
+        except ValueError:
+            continue
+
+    return chat_ids or DEFAULT_ALLOWED_CHAT_IDS
+
+
+def _get_api_key() -> str | None:
+    token = os.getenv('API_KEY')
+    if token:
+        return token.strip()
+    if keys is not None:
+        token = getattr(keys, 'API_KEY', None)
+        if token:
+            return str(token).strip()
+    return None
+
+
+# Allowed chat IDs - bot will respond in these chats only
+ALLOWED_CHAT_IDS = _parse_allowed_chat_ids(os.getenv('ALLOWED_CHAT_IDS'))
 
 # Define the keyboard layout
 keyboard = [['💰💰💰  Сколько у нас всего денег 💰💰💰'],
@@ -168,14 +210,15 @@ async def balance(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 def run_bot():
     """Main function to run the bot"""
-    
-    if not hasattr(keys, 'API_KEY') or not keys.API_KEY:
-        logger.error("API_KEY not found in constants.py")
+
+    api_key = _get_api_key()
+    if not api_key:
+        logger.error("API_KEY not found. Set env API_KEY or Utils/constants.py")
         return
     
     try:
         logger.info("Starting bot...")
-        application = Application.builder().token(keys.API_KEY).build()
+        application = Application.builder().token(api_key).build()
         logger.info('Bot application built successfully')
 
         # Add handlers

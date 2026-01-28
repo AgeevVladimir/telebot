@@ -1,6 +1,7 @@
 import logging
 import functools
 from datetime import datetime, timedelta
+import json
 import os
 import socket
 from urllib3.util.timeout import Timeout
@@ -18,11 +19,12 @@ logger = logging.getLogger(__name__)
 socket.setdefaulttimeout(30)
 
 # Constants
-SPREADSHEET_ID = getattr(constants, 'SPREADSHEET_ID', None)
+SPREADSHEET_ID = os.getenv('SPREADSHEET_ID') or getattr(constants, 'SPREADSHEET_ID', None)
 SHEET_NAME = 'Spendings'
 RANGE_NAME = f'{SHEET_NAME}!A1:Z'
 SCOPES = ['https://www.googleapis.com/auth/spreadsheets']
-CREDENTIALS_FILE = 'Utils/myfinance1514-2-53f670e62850.json'
+CREDENTIALS_FILE = os.getenv('GOOGLE_CREDENTIALS_FILE', 'Utils/myfinance1514-2-53f670e62850.json')
+GOOGLE_CREDENTIALS_JSON = os.getenv('GOOGLE_CREDENTIALS_JSON')
 
 FILE_NAME = 'spendings.xlsx'
 CURRENCY = '€'
@@ -42,6 +44,23 @@ day_abbreviations = {
 
 # Global service object (lazy initialization)
 _service = None
+
+
+def _ensure_credentials_file() -> str:
+    """Return a path to Google service account credentials.
+
+    If GOOGLE_CREDENTIALS_JSON is provided, write it to a temp file and use it.
+    Otherwise, use CREDENTIALS_FILE.
+    """
+    if not GOOGLE_CREDENTIALS_JSON:
+        return CREDENTIALS_FILE
+
+    # Validate JSON early (helps produce a clear error message)
+    json.loads(GOOGLE_CREDENTIALS_JSON)
+    path = '/tmp/google-service-account.json'
+    with open(path, 'w', encoding='utf-8') as f:
+        f.write(GOOGLE_CREDENTIALS_JSON)
+    return path
 
 
 def handle_sheets_errors(error_message="Error processing request"):
@@ -71,11 +90,12 @@ def get_sheet_service():
         if not SPREADSHEET_ID:
             raise ValueError("SPREADSHEET_ID not found in constants")
         
-        if not os.path.exists(CREDENTIALS_FILE):
-            raise FileNotFoundError(f"Credentials file not found: {CREDENTIALS_FILE}")
+        credentials_path = _ensure_credentials_file()
+        if not os.path.exists(credentials_path):
+            raise FileNotFoundError(f"Credentials file not found: {credentials_path}")
         
         logger.info("Initializing Google Sheets service...")
-        credentials = Credentials.from_service_account_file(CREDENTIALS_FILE, scopes=SCOPES)
+        credentials = Credentials.from_service_account_file(credentials_path, scopes=SCOPES)
         # Create service with timeout
         service = build('sheets', 'v4', credentials=credentials, cache_discovery=False)
         _service = service.spreadsheets()
