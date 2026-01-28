@@ -11,7 +11,10 @@ from google.oauth2.service_account import Credentials
 from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
 
-from Utils import constants
+try:
+    from Utils import constants
+except Exception:
+    constants = None
 
 logger = logging.getLogger(__name__)
 
@@ -19,7 +22,7 @@ logger = logging.getLogger(__name__)
 socket.setdefaulttimeout(30)
 
 # Constants
-SPREADSHEET_ID = os.getenv('SPREADSHEET_ID') or getattr(constants, 'SPREADSHEET_ID', None)
+SPREADSHEET_ID = os.getenv('SPREADSHEET_ID') or (getattr(constants, 'SPREADSHEET_ID', None) if constants else None)
 SHEET_NAME = 'Spendings'
 RANGE_NAME = f'{SHEET_NAME}!A1:Z'
 SCOPES = ['https://www.googleapis.com/auth/spreadsheets']
